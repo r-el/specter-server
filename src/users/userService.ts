@@ -1,5 +1,4 @@
 import { inject, injectable } from "tsyringe";
-import { ApiError } from "@core/middlewares/errorHandler.js";
 import { hashPassword } from "@core/utils/crypto.js";
 import { validate } from "@core/validationService.js";
 import type { IUser } from "~types/interfaces.js";
