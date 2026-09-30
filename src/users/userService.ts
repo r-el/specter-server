@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { inject, injectable } from "tsyringe";
 import { hashPassword } from "@core/utils/crypto.js";
 import { validate } from "@core/validationService.js";
@@ -29,10 +30,7 @@ export class UserService {
     role: string;
     google_id: string;
   }): Promise<User> {
-    const randomPassword = Array(32)
-      .fill(null)
-      .map(() => Math.round(Math.random() * 36).toString(36))
-      .join("");
+    const randomPassword = randomBytes(32).toString("hex");
     const hashedPassword = await hashPassword(randomPassword);
     const user = await this.userRepository.create({
       username: userData.username,

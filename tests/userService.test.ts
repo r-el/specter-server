@@ -58,6 +58,28 @@ describe("UserService", () => {
     expect(repository.findByUsername).toHaveBeenCalledWith("valid_user");
   });
 
+  it("generates a cryptographically random password for Google users", async () => {
+    vi.mocked(hashPassword).mockResolvedValue("hashed-password");
+    vi.mocked(repository.create).mockResolvedValue({ id: "user-id" });
+
+    await service.createGoogleUser({
+      username: "google_user",
+      name: "Google User",
+      email: "google@example.com",
+      role: "viewer",
+      google_id: "google-id",
+    });
+
+    expect(hashPassword).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
+    expect(repository.create).toHaveBeenCalledWith({
+      username: "google_user",
+      name: "Google User",
+      email: "google@example.com",
+      role: "viewer",
+      password: "hashed-password",
+    });
+  });
+
   it("validates IDs before updating a user", async () => {
     vi.mocked(repository.update).mockResolvedValue(null);
 
