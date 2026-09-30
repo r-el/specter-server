@@ -33,12 +33,7 @@ export class SupabaseUserRepository implements UserRepository {
   }
 
   async update(id: string, changes: Partial<IUser>): Promise<IUser | null> {
-    const { data, error } = await supabase
-      .from("users")
-      .update(changes)
-      .eq("id", id)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("users").update(changes).eq("id", id).select().single();
 
     if (error) {
       if (error.code === "PGRST116") return null;

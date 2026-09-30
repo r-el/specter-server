@@ -19,12 +19,7 @@ import { loadSpecterConfig, type SpecterConfig } from "@specter/specterConfig.js
 import { SpecterHttpClient } from "@specter/specterHttpClient.js";
 import { SpecterEventStream } from "@specter/specterEventStream.js";
 import { SpecterCatalog } from "@specter/specterCatalog.js";
-import {
-  SPECTER_CATALOG,
-  SPECTER_CONFIG,
-  SPECTER_EVENT_STREAM,
-  SPECTER_HTTP_CLIENT,
-} from "@specter/tokens.js";
+import { SPECTER_CATALOG, SPECTER_CONFIG, SPECTER_EVENT_STREAM, SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
 
 // Register services in DI container
 container.registerSingleton(CameraService);
