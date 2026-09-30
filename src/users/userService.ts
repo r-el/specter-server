@@ -3,12 +3,7 @@ import { hashPassword } from "@core/utils/crypto.js";
 import { validate } from "@core/validationService.js";
 import type { IUser } from "~types/interfaces.js";
 import User from "./userModel.js";
-import {
-  createUserSchema,
-  emailSchema,
-  usernameSchema,
-  userIdSchema,
-} from "./userSchemas.js";
+import { createUserSchema, emailSchema, usernameSchema, userIdSchema } from "./userSchemas.js";
 import { USER_REPOSITORY } from "./infrastructure/tokens.js";
 import type { UserRepository } from "./domain/userRepository.js";
 

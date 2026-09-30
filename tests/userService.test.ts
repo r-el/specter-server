@@ -37,6 +37,7 @@ describe("UserService", () => {
       password: "password123",
       name: "Operator",
       email: "operator@example.com",
+      role: "viewer",
     });
 
     expect(hashPassword).toHaveBeenCalledWith("password123");
