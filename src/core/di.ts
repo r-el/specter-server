@@ -6,6 +6,8 @@ import { AlertService } from "@alerts/alertService.js";
 import { ALERT_REPOSITORY } from "@alerts/infrastructure/tokens.js";
 import { SpecterAlertRepository } from "@alerts/infrastructure/specterAlertRepository.js";
 import { UserService } from "@users/userService.js";
+import { USER_REPOSITORY } from "@users/infrastructure/tokens.js";
+import { SupabaseUserRepository } from "@users/infrastructure/supabaseUserRepository.js";
 import { WatchlistService } from "@watchlists/watchlistService.js";
 import { AuthService } from "@auth/authService.js";
 import { CAMERA_ASSIGNMENT_REPOSITORY, CAMERA_REPOSITORY } from "@cameras/infrastructure/tokens.js";
@@ -17,18 +19,14 @@ import { loadSpecterConfig, type SpecterConfig } from "@specter/specterConfig.js
 import { SpecterHttpClient } from "@specter/specterHttpClient.js";
 import { SpecterEventStream } from "@specter/specterEventStream.js";
 import { SpecterCatalog } from "@specter/specterCatalog.js";
-import {
-  SPECTER_CATALOG,
-  SPECTER_CONFIG,
-  SPECTER_EVENT_STREAM,
-  SPECTER_HTTP_CLIENT,
-} from "@specter/tokens.js";
+import { SPECTER_CATALOG, SPECTER_CONFIG, SPECTER_EVENT_STREAM, SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
 
 // Register services in DI container
 container.registerSingleton(CameraService);
 container.registerSingleton(CameraSettingsService);
 container.registerSingleton(AlertService);
 container.registerSingleton(UserService);
+container.registerSingleton(USER_REPOSITORY, SupabaseUserRepository);
 container.registerSingleton(WatchlistService);
 container.registerSingleton(AuthService);
 container.registerSingleton(CAMERA_REPOSITORY, SpecterCameraRepository);

@@ -1,174 +1,80 @@
-import { injectable } from "tsyringe";
-
-
-
-import { ApiError } from "@core/middlewares/errorHandler.js";
-
-
-import User from "./userModel.js";
-import { supabase } from "@core/db/supabase.js";
-import { validate } from "@core/validationService.js";
-import { createUserSchema, emailSchema, usernameSchema, userIdSchema } from "./userSchemas.js";
+import { randomBytes } from "node:crypto";
+import { inject, injectable } from "tsyringe";
 import { hashPassword } from "@core/utils/crypto.js";
+import { validate } from "@core/validationService.js";
 import type { IUser } from "~types/interfaces.js";
+import User from "./userModel.js";
+import { createUserSchema, emailSchema, usernameSchema, userIdSchema } from "./userSchemas.js";
+import { USER_REPOSITORY } from "./infrastructure/tokens.js";
+import type { UserRepository } from "./domain/userRepository.js";
 
 @injectable()
 export class UserService {
-// user BLL and database operations
+  constructor(@inject(USER_REPOSITORY) private readonly userRepository: UserRepository) {}
 
-/**
- * Create a new user with password hashing
- * @param {Object} userData - User data
- * @returns {Object} - Created user
- */
-async createUser(userData: unknown): Promise<User> {
-  const validatedData = validate(userData, createUserSchema);
-  const hashedPassword = await hashPassword(validatedData.password);
+  async createUser(userData: unknown): Promise<User> {
+    const validatedData = validate(userData, createUserSchema);
+    const hashedPassword = await hashPassword(validatedData.password);
+    const user = await this.userRepository.create({
+      ...validatedData,
+      password: hashedPassword,
+    });
 
-  const dbUserData = {
-    ...validatedData,
-    password: hashedPassword,
-  };
-
-  const { data, error } = await supabase.from("users").insert(dbUserData).select().single();
-
-  if (error) throw new Error(`Database error: ${error.message}`);
-
-  return new User(data);
-}
-
-/**
- * Creates a user from Google OAuth.
- * Generates a random secure password since they authenticate via Google.
- */
-async createGoogleUser(userData: { username: string; name: string; email: string; role: string; google_id: string }) {
-  // Generate a random 32-character password for Google users
-  const randomPassword = Array(32)
-    .fill(null)
-    .map(() => Math.round(Math.random() * 36).toString(36))
-    .join('');
-    
-  const hashedPassword = await hashPassword(randomPassword);
-
-  const dbUserData = {
-    username: userData.username,
-    name: userData.name,
-    email: userData.email,
-    role: userData.role,
-    password: hashedPassword,
-    // Note: If you add `google_id` to Supabase `users` table, you can pass it here.
-    // For now we map them by email.
-  };
-
-  const { data, error } = await supabase.from("users").insert(dbUserData).select().single();
-
-  if (error) throw new Error(`Database error: ${error.message}`);
-
-  return new User(data);
-}
-
-async getUserByEmail(email: unknown): Promise<User | null> {
-  const validatedEmail = validate(email, emailSchema);
-
-  const { data, error } = await supabase.from("users").select("*").eq("email", validatedEmail).single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw new Error(`Database error: ${error.message}`);
+    return new User(user);
   }
 
-  return new User(data);
-}
+  async createGoogleUser(userData: {
+    username: string;
+    name: string;
+    email: string;
+    role: string;
+    google_id: string;
+  }): Promise<User> {
+    const randomPassword = randomBytes(32).toString("hex");
+    const hashedPassword = await hashPassword(randomPassword);
+    const user = await this.userRepository.create({
+      username: userData.username,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      password: hashedPassword,
+    });
 
-async getUserByUsername(username: unknown): Promise<User | null> {
-  const validatedUsername = validate(username, usernameSchema);
-
-  const { data, error } = await supabase.from("users").select("*").eq("username", validatedUsername).single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw new Error(`Database error: ${error.message}`);
+    return new User(user);
   }
 
-  return new User(data);
-}
-
-async getUserById(id: unknown): Promise<User | null> {
-  const validatedId = validate(id, userIdSchema);
-
-  const { data, error } = await supabase.from("users").select("*").eq("id", validatedId).single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw new Error(`Database error: ${error.message}`);
+  async getUserByEmail(email: unknown): Promise<User | null> {
+    const validatedEmail = validate(email, emailSchema);
+    const user = await this.userRepository.findByEmail(validatedEmail);
+    return user ? new User(user) : null;
   }
 
-  return new User(data);
-}
-
-/**
- * Get all users or filter by role
- * @param {string} role - Optional role filter
- * @returns {Array} - Array of users
- */
-async getAllUsers(role: string | null = null): Promise<User[]> {
-  let query = supabase.from("users").select("*");
-  
-  if (role) {
-    query = query.eq("role", role);
+  async getUserByUsername(username: unknown): Promise<User | null> {
+    const validatedUsername = validate(username, usernameSchema);
+    const user = await this.userRepository.findByUsername(validatedUsername);
+    return user ? new User(user) : null;
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(`Database error: ${error.message}`);
+  async getUserById(id: unknown): Promise<User | null> {
+    const validatedId = validate(id, userIdSchema);
+    const user = await this.userRepository.findById(validatedId);
+    return user ? new User(user) : null;
   }
 
-  return data.map(userData => new User(userData));
-}
-
-/**
- * Update user by ID
- * @param {string} id - User ID
- * @param {Object} updateData - Data to update
- * @returns {Object} - Updated user
- */
-async updateUser(id: unknown, updateData: Partial<IUser>): Promise<User | null> {
-  const validatedId = validate(id, userIdSchema);
-
-  const { data, error } = await supabase
-    .from("users")
-    .update(updateData)
-    .eq("id", validatedId)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null;
-    throw new Error(`Database error: ${error.message}`);
+  async getAllUsers(role: string | null = null): Promise<User[]> {
+    const users = await this.userRepository.findAll(role);
+    return users.map((user) => new User(user));
   }
 
-  return new User(data);
-}
-
-/**
- * Delete user by ID
- * @param {string} id - User ID
- * @returns {boolean} - Success status
- */
-async deleteUser(id: unknown): Promise<boolean> {
-  const validatedId = validate(id, userIdSchema);
-
-  const { error } = await supabase
-    .from("users")
-    .delete()
-    .eq("id", validatedId);
-
-  if (error) {
-    throw new Error(`Database error: ${error.message}`);
+  async updateUser(id: unknown, updateData: Partial<IUser>): Promise<User | null> {
+    const validatedId = validate(id, userIdSchema);
+    const user = await this.userRepository.update(validatedId, updateData);
+    return user ? new User(user) : null;
   }
 
-  return true;
-}
-
+  async deleteUser(id: unknown): Promise<boolean> {
+    const validatedId = validate(id, userIdSchema);
+    await this.userRepository.delete(validatedId);
+    return true;
+  }
 }
