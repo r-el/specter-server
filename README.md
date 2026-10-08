@@ -48,7 +48,8 @@ See `.env.example` for the full reference. Key settings:
 # Server
 PORT=12113
 HOST=localhost
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:12113
+# Comma-separated frontend origins allowed to call this API.
+ALLOWED_ORIGINS=http://localhost:5173
 
 # Supabase (Auth & Users)
 SUPABASE_URL=https://<your-project>.supabase.co

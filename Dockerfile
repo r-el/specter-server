@@ -18,16 +18,17 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Only install production dependencies
+# Only install production dependencies. Remove the prepare hook because husky is a dev dependency.
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm pkg delete scripts.prepare \
+    && npm ci --omit=dev --no-audit --no-fund \
+    && npm cache clean --force
 
 # Copy built code from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Provide environment variables (defaults that can be overridden by docker-compose)
-ENV PORT=12113
-ENV NODE_ENV=production
+ENV PORT=12113 \
+    NODE_ENV=production
 
 EXPOSE 12113
 

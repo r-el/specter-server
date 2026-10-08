@@ -1,10 +1,8 @@
 /**
  * Express Application Setup
  *
- * Every API route lives under /api, so the web client can be served from the same origin with
- * client-side routes such as /cameras that would otherwise collide with API paths.
+ * Every API route lives under /api so it can be consumed by the separately deployed web client.
  */
-import path from "node:path";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -24,17 +22,19 @@ import { setupSwagger } from "./core/swagger.js";
 const app = express();
 
 // Security
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: {
-    directives: {
-      // Snapshots are shown from blob URLs, and live video plays through MediaSource blobs.
-      "img-src": ["'self'", "data:", "blob:"],
-      "media-src": ["'self'", "blob:"],
-      "connect-src": ["'self'"],
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        // Snapshots are shown from blob URLs, and live video plays through MediaSource blobs.
+        "img-src": ["'self'", "data:", "blob:"],
+        "media-src": ["'self'", "blob:"],
+        "connect-src": ["'self'"],
+      },
     },
-  },
-}));
+  }),
+);
 app.disable("x-powered-by");
 
 // CORS
@@ -60,27 +60,6 @@ app.use("/api", api);
 
 // Setup Swagger UI
 setupSwagger(app);
-
-// The built web client, when this server also serves it (production image).
-const clientDistDirectory = process.env.CLIENT_DIST_DIR;
-if (clientDistDirectory) {
-  const indexFile = path.resolve(clientDistDirectory, "index.html");
-  app.use(
-    express.static(clientDistDirectory, {
-      index: false,
-      setHeaders: (res, filePath) => {
-        // Vite fingerprints everything under assets/, so those files never change.
-        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-        }
-      },
-    }),
-  );
-  app.get(/^\/(?!api(?:\/|$)|socket\.io(?:\/|$)).*/, (req, res) => {
-    res.setHeader("Cache-Control", "no-cache");
-    res.sendFile(indexFile);
-  });
-}
 
 // Global error handling middleware - must be last
 app.use(globalErrorHandler);
