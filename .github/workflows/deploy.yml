@@ -78,5 +78,5 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
           HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
-          heroku container:push web -f Dockerfile -a "$HEROKU_APP_NAME"
+          heroku container:push web -a "$HEROKU_APP_NAME"
           heroku container:release web -a "$HEROKU_APP_NAME"
