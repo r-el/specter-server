@@ -36,7 +36,7 @@ export class AuthService {
     @inject(delay(() => UserService)) private userService: UserService,
     @inject(delay(() => LocalStrategy)) private localStrategy?: LocalStrategy,
     @inject(delay(() => GoogleStrategy)) private googleStrategy?: GoogleStrategy,
-    private emailService?: EmailService
+    private emailService?: EmailService,
   ) {
     if (this.localStrategy?.strategyName) {
       this.strategies.set(this.localStrategy.strategyName, this.localStrategy);
@@ -144,10 +144,13 @@ export class AuthService {
     console.log(`🔑 [VERIFICATION CODE] Generated for ${email}: ${code}`);
     console.log(`==================================================\n`);
 
-    // Send real email with 6-digit verification code
-    this.emailService.sendVerificationCodeEmail(user.email!, user.name!, code).catch((err) => {
-      logger.error("Failed to send verification email in background", { error: err });
-    });
+    // Send the verification code before confirming registration.
+    const emailSent = await this.emailService.sendVerificationCodeEmail(user.email!, user.name!, code);
+    if (!emailSent) {
+      verificationStore.delete(email.toLowerCase());
+      await this.userService.deleteUser(user.id);
+      throw new ApiError(503, "Verification email could not be sent. Please try again later.");
+    }
 
     return { user, token, verificationRequired: true };
   }
