@@ -28,7 +28,11 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
 
   // Differentiate log severity: client errors (4xx) as warn, server errors (500+) as error with stack
   if (isClientError) {
-    logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} ${rawMessage}`);
+    if (err.metadata) {
+      logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} ${rawMessage}`, { metadata: err.metadata });
+    } else {
+      logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} ${rawMessage}`);
+    }
   } else {
     logger.error(`${new Date().toISOString()} - ERROR:`, {
       message: rawMessage,
@@ -36,6 +40,7 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       url: req.originalUrl,
       method: req.method,
       ip: req.ip,
+      ...(err.metadata && { metadata: err.metadata }),
     });
   }
 
@@ -50,6 +55,7 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     error: errorResponse,
     ...(err.errors && { errors: err.errors }),
     ...(isZod && { errors: err.issues }),
+    ...(err.metadata && { metadata: err.metadata }),
     ...(config.server.environment === "development" && { stack: err.stack }),
   });
 };

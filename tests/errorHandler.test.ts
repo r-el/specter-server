@@ -107,4 +107,27 @@ describe("Error Handler Middleware", () => {
       (config.server as any).isProduction = originalIsProduction;
     }
   });
+
+  it("should include metadata in response and log when provided", () => {
+    const err = new ApiError(400, "Validation failed", undefined, { field: "username", reason: "taken" });
+    const req = { originalUrl: "/api/register", method: "POST", ip: "127.0.0.1" } as any;
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+    const next = vi.fn();
+
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
+
+    globalErrorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: "Validation failed",
+        metadata: { field: "username", reason: "taken" },
+      }),
+    );
+    expect(warnSpy).toHaveBeenCalledWith("POST /api/register - 400 Validation failed", {
+      metadata: { field: "username", reason: "taken" },
+    });
+  });
 });

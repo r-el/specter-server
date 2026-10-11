@@ -70,4 +70,14 @@ describe("HTTP Error Classes", () => {
     expect(error.message).toBe("Bad gateway — upstream service error");
     expect(error.name).toBe("BadGatewayError");
   });
+
+  it("attaches optional metadata to ApiError and subclasses", () => {
+    const metadata = { cameraId: "cam_123", field: "resolution" };
+    const apiError = new ApiError(400, "Bad Request", undefined, metadata);
+    expect(apiError.metadata).toEqual(metadata);
+
+    const notFoundError = new NotFoundError("Camera not found", { id: "cam_999" });
+    expect(notFoundError.metadata).toEqual({ id: "cam_999" });
+    expect(notFoundError.statusCode).toBe(404);
+  });
 });
