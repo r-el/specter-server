@@ -1,17 +1,23 @@
 import { z } from "zod";
 import { isSpecterId } from "@specter/specterHttpClient.js";
 
-export const specterIdSchema = (kind: string) =>
-  z.string().refine(isSpecterId, `${kind} ID is not valid`);
+export const specterIdSchema = (kind: string) => z.string().refine(isSpecterId, `${kind} ID is not valid`);
 
-const nameSchema = z.string().trim()
+const nameSchema = z
+  .string()
+  .trim()
   .min(1, "Camera name must be at least 1 character")
   .max(100, "Camera name must not exceed 100 characters");
 
-const sourceUrlSchema = z.string().trim()
+const sourceUrlSchema = z
+  .string()
+  .trim()
   .min(1, "Source URL must be at least 1 character")
   .max(500, "Source URL must not exceed 500 characters")
-  .regex(/^(rtsps?|https?):\/\/[^\s]+$/i, "Source URL must be an rtsp, rtsps, http or https URL");
+  .regex(
+    /^(rtsps?|https?):\/\/[^\s]+$|^ffmpeg:[^\s]+$/i,
+    "Source URL must be an rtsp, rtsps, http, https or ffmpeg URL",
+  );
 
 const credentialsSchema = z.object({
   username: z.string().min(1).max(100),
@@ -44,17 +50,19 @@ export const createCameraSchema = z.object({
 
 export const updateCameraSchema = z.object({
   params: cameraParams,
-  body: z.object({
-    name: nameSchema.optional(),
-    source_url: sourceUrlSchema.optional(),
-    credentials: credentialsSchema.nullable().optional(),
-    location: locationSchema.nullable().optional(),
-    watchlist_ids: watchlistIdsSchema.optional(),
-    detection_classes: detectionClassesSchema.optional(),
-    is_enabled: z.boolean().optional(),
-  }).refine((data) => Object.keys(data).length > 0, {
-    message: "At least one field must be provided for update",
-  }),
+  body: z
+    .object({
+      name: nameSchema.optional(),
+      source_url: sourceUrlSchema.optional(),
+      credentials: credentialsSchema.nullable().optional(),
+      location: locationSchema.nullable().optional(),
+      watchlist_ids: watchlistIdsSchema.optional(),
+      detection_classes: detectionClassesSchema.optional(),
+      is_enabled: z.boolean().optional(),
+    })
+    .refine((data) => Object.keys(data).length > 0, {
+      message: "At least one field must be provided for update",
+    }),
 });
 
 export const assignCameraSchema = z.object({
