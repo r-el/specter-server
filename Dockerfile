@@ -27,9 +27,16 @@ RUN npm pkg delete scripts.prepare \
 # Copy built code from builder stage
 COPY --from=builder /app/dist ./dist
 
+# Run as non-root user
+RUN chown -R node:node /app
+USER node
+
 ENV PORT=12113 \
     NODE_ENV=production
 
 EXPOSE 12113
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:12113/api/health || exit 1
 
 CMD ["node", "--async-stack-traces", "dist/index.js"]
