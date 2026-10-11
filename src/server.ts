@@ -9,6 +9,7 @@ import helmet from "helmet";
 import { config } from "./core/config.js";
 import { ApiError, globalErrorHandler } from "./core/middlewares/errorHandler.js";
 import { globalLimiter } from "./core/middlewares/rateLimiter.js";
+import { requestLogger } from "./core/middlewares/requestLogger.js";
 import rootRoutes from "./core/rootRoutes.js";
 import healthRoutes from "./core/healthRoutes.js";
 import authRoutes from "./auth/authRoutes.js";
@@ -37,6 +38,9 @@ app.use(
   }),
 );
 app.disable("x-powered-by");
+
+// Request logging
+app.use(requestLogger);
 
 // CORS
 app.use(cors(config.cors));

@@ -9,7 +9,7 @@ const levels = {
   debug: 4,
 };
 
-const level = () => (config.server.isDevelopment ? "debug" : "info");
+const level = () => (config.server.isDevelopment ? "debug" : "http");
 
 const colors = {
   error: "red",
