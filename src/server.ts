@@ -6,6 +6,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import { config } from "./core/config.js";
 import { ApiError, globalErrorHandler, NotFoundError } from "./core/middlewares/errorHandler.js";
 import { globalLimiter } from "./core/middlewares/rateLimiter.js";
@@ -38,6 +39,9 @@ app.use(
   }),
 );
 app.disable("x-powered-by");
+
+// Compression
+app.use(compression());
 
 // Request logging
 app.use(requestLogger);
