@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node --async-stack-traces dist/index.js",
     "dev": "tsx watch -r tsconfig-paths/register index.ts",
     "specter:contracts": "tsx scripts/syncSpecterContracts.ts",
     "typecheck": "tsc --noEmit",

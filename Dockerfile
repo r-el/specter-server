@@ -32,4 +32,4 @@ ENV PORT=12113 \
 
 EXPOSE 12113
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "--async-stack-traces", "dist/index.js"]
