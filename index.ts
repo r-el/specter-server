@@ -9,6 +9,7 @@ import { container } from "@core/di.js";
 import app from "./src/server.js";
 import logger from "@core/utils/logger.js";
 import { errorMessage } from "@core/utils/errorMessage.js";
+import { setupSignalHandlers } from "@core/utils/gracefulShutdown.js";
 import { closeSocketServer, initializeSocketServer } from "@notifications/socketServer.js";
 import { SpecterEventRelay } from "@notifications/specterEventRelay.js";
 import { attachLiveVideoRelay } from "@live/liveVideoRelay.js";
@@ -25,19 +26,14 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const eventStream = container.resolve<SpecterEventStream>(SPECTER_EVENT_STREAM);
 let httpServer: ReturnType<typeof app.listen> | null = null;
 
-// Graceful shutdown handler
-async function gracefulShutdown(signal: string): Promise<void> {
-  logger.info(`${signal} received, shutting down gracefully`);
-  setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS).unref();
-  await eventStream.stop().catch((error) => logger.error("Cannot close NATS", { error: errorMessage(error) }));
-  await closeSocketServer();
-  await new Promise((resolve) => (httpServer ? httpServer.close(resolve) : resolve(undefined)));
-  process.exit(0);
-}
-
-// Handle shutdown signals
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+setupSignalHandlers({
+  timeoutMs: SHUTDOWN_TIMEOUT_MS,
+  onShutdown: async () => {
+    await eventStream.stop().catch((error) => logger.error("Cannot close NATS", { error: errorMessage(error) }));
+    await closeSocketServer();
+    await new Promise((resolve) => (httpServer ? httpServer.close(resolve) : resolve(undefined)));
+  },
+});
 
 // Start server after init dbs
 async function startServer(): Promise<void> {
