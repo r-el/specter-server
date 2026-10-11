@@ -7,7 +7,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { config } from "./core/config.js";
-import { ApiError, globalErrorHandler } from "./core/middlewares/errorHandler.js";
+import { ApiError, globalErrorHandler, NotFoundError } from "./core/middlewares/errorHandler.js";
 import { globalLimiter } from "./core/middlewares/rateLimiter.js";
 import { requestLogger } from "./core/middlewares/requestLogger.js";
 import rootRoutes from "./core/rootRoutes.js";
@@ -67,6 +67,9 @@ app.use("/api", api);
 
 // Setup Swagger UI
 setupSwagger(app);
+
+// Catch-all 404 for any route not handled above
+app.use((req, res, next) => next(new NotFoundError(`Route ${req.method} ${req.originalUrl} not found`)));
 
 // Global error handling middleware - must be last
 app.use(globalErrorHandler);
