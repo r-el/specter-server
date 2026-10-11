@@ -1,5 +1,6 @@
 import "dotenv/config";
 import env from "env-var";
+import { resolveSecret } from "./utils/secrets.js";
 
 export const config = {
   server: {
@@ -11,7 +12,7 @@ export const config = {
   },
   auth: {
     bcryptSaltRounds: env.get("BCRYPT_SALT_ROUNDS").default(10).asIntPositive(),
-    jwtSecret: env.get("JWT_SECRET").asString(),
+    jwtSecret: resolveSecret("jwt_secret", "JWT_SECRET"),
     jwtExpiresIn: env.get("JWT_EXPIRES_IN").default("7d").asString(),
   },
   cors: {
@@ -27,24 +28,24 @@ export const config = {
   database: {
     supabase: {
       url: env.get("SUPABASE_URL").default("").asString(),
-      key: env.get("SUPABASE_KEY").default("").asString(),
+      key: resolveSecret("supabase_key", "SUPABASE_KEY"),
     },
     qdrant: {
       url: env.get("QDRANT_URL").default("http://127.0.0.1:6333").asString().replace(/\/$/, ""),
     },
   },
   email: {
-    sendgridApiKey: env.get("SENDGRID_API_KEY").default("").asString(),
+    sendgridApiKey: resolveSecret("sendgrid_api_key", "SENDGRID_API_KEY"),
     senderEmail: env.get("EMAIL_SENDER").default("no-reply@specter.com").asString(),
     senderName: env.get("EMAIL_SENDER_NAME").default("Specter System").asString(),
     testmail: {
-      apiKey: env.get("TESTMAIL_API_KEY").default("").asString(),
+      apiKey: resolveSecret("testmail_api_key", "TESTMAIL_API_KEY"),
       namespace: env.get("TESTMAIL_NAMESPACE").default("").asString(),
     },
   },
   google: {
     clientId: env.get("GOOGLE_CLIENT_ID").default("").asString(),
-    clientSecret: env.get("GOOGLE_CLIENT_SECRET").default("").asString(),
+    clientSecret: resolveSecret("google_client_secret", "GOOGLE_CLIENT_SECRET"),
   },
 };
 
