@@ -18,6 +18,7 @@ import alertRoutes from "./alerts/alertRoutes.js";
 import watchlistRoutes, { enrollmentBatchRoutes } from "./watchlists/watchlistRoutes.js";
 import dashboardRoutes from "./dashboard/dashboardRoutes.js";
 import { setupSwagger } from "./core/swagger.js";
+import agentRoutes, { agentHeartbeatRoutes } from "./agents/agentRoutes.js";
 
 const app = express();
 
@@ -55,6 +56,8 @@ api.use("/alerts", alertRoutes);
 api.use("/watchlists", watchlistRoutes);
 api.use("/enrollment-batches", enrollmentBatchRoutes);
 api.use("/dashboard", dashboardRoutes);
+api.use("/agents", agentRoutes);
+api.use("/agent", agentHeartbeatRoutes);
 api.use((req, res, next) => next(new ApiError(404, "Not found")));
 app.use("/api", api);
 
