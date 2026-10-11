@@ -1,25 +1,9 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import logger from "@core/utils/logger.js";
 import { config } from "@core/config.js";
+import { ApiError } from "@core/utils/errors.js";
 
 const ENVIRONMENT = config.server.environment;
-
-/**
- * @param {number} statusCode - HTTP status code
- * @param {string} message - Error message
- */
-class ApiError extends Error {
-  statusCode: number;
-  errors?: string[];
-
-  constructor(statusCode: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-    this.statusCode = statusCode;
-
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
 
 type AsyncHandler<Req = Request> = (req: Req, res: Response, next: NextFunction) => Promise<void | any>;
 
@@ -56,3 +40,4 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
 };
 
 export { ApiError, catchAsync, globalErrorHandler };
+export * from "@core/utils/errors.js";
