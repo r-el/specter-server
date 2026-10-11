@@ -31,7 +31,10 @@ setupSignalHandlers({
   onShutdown: async () => {
     await eventStream.stop().catch((error) => logger.error("Cannot close NATS", { error: errorMessage(error) }));
     await closeSocketServer();
-    await new Promise((resolve) => (httpServer ? httpServer.close(resolve) : resolve(undefined)));
+    if (httpServer) {
+      httpServer.closeIdleConnections();
+      await new Promise((resolve) => httpServer!.close(resolve));
+    }
   },
 });
 
@@ -57,6 +60,10 @@ async function startServer(): Promise<void> {
     httpServer = app.listen(PORT, HOST, () => {
       logger.info("Specter server started", { host: HOST, port: PORT, environment: config.server.environment });
     });
+
+    // Prevent premature connection drops behind reverse proxies (e.g. nginx)
+    httpServer.keepAliveTimeout = 65_000;
+    httpServer.headersTimeout = 66_000;
     const dispatcher = initializeSocketServer(httpServer);
     attachLiveVideoRelay(
       httpServer,
