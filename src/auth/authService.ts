@@ -1,7 +1,7 @@
 import { injectable, inject, delay, container } from "tsyringe";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { authConfig } from "@core/config/auth.js";
+import { config } from "@core/config.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import { validate } from "@core/validationService.js";
 import { createUserSchema, loginUserSchema } from "@users/userSchemas.js";
@@ -15,9 +15,9 @@ import type { IAuthStrategy, AuthResult } from "./strategies/IAuthStrategy.js";
 import { LocalStrategy } from "./strategies/localStrategy.js";
 import { GoogleStrategy } from "./strategies/googleStrategy.js";
 
-const BCRYPT_SALT_ROUNDS = authConfig.bcryptSaltRounds;
-const DEFAULT_TOKEN_EXPIRATION = authConfig.jwtExpiresIn;
-const JWT_SECRET = authConfig.jwtSecret;
+const BCRYPT_SALT_ROUNDS = config.auth.bcryptSaltRounds;
+const DEFAULT_TOKEN_EXPIRATION = config.auth.jwtExpiresIn;
+const JWT_SECRET = config.auth.jwtSecret;
 
 interface PendingVerification {
   code: string;

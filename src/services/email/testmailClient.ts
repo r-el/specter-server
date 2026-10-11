@@ -1,12 +1,12 @@
 /**
  * TestmailAppClient
- * 
+ *
  * An HTTP client that wraps the testmail.app API.
  * Used exclusively for End-to-End (E2E) testing of email workflows.
  * Decoupled from the testing framework (Vitest) so it can be reused.
  */
 
-import { testmailConfig } from "@core/config/testmail.js";
+import { config } from "@core/config.js";
 import logger from "@core/utils/logger.js";
 
 export interface TestmailEmail {
@@ -22,8 +22,8 @@ export class TestmailAppClient {
   private readonly baseUrl = "https://api.testmail.app/api/json";
 
   constructor(
-    private apiKey: string = testmailConfig.apiKey,
-    private namespace: string = testmailConfig.namespace
+    private apiKey: string = config.email.testmail.apiKey,
+    private namespace: string = config.email.testmail.namespace,
   ) {
     if (!this.apiKey || !this.namespace) {
       logger.warn("TestmailAppClient is missing apiKey or namespace configuration");
@@ -41,7 +41,7 @@ export class TestmailAppClient {
   /**
    * Fetches an email from testmail.app using live queries.
    * `livequery=true` holds the connection open until an email matching the tag arrives.
-   * 
+   *
    * @param tag - The tag used to identify the specific email.
    * @returns The latest email matching the tag, or null if none found.
    */
@@ -55,7 +55,7 @@ export class TestmailAppClient {
     try {
       const response = await fetch(url.toString(), {
         method: "GET",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -63,7 +63,7 @@ export class TestmailAppClient {
       }
 
       const data = await response.json();
-      
+
       if (data && data.emails && data.emails.length > 0) {
         return data.emails[0] as TestmailEmail;
       }

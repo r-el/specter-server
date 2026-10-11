@@ -5,7 +5,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { ApiError } from "./errorHandler.js";
-import { authConfig } from "../config/auth.js";
+import { config } from "../config.js";
 import { JwtUser } from "~types/request.js";
 
 interface JwtPayload {
@@ -27,7 +27,7 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
 
     if (!token) throw new ApiError(401, "Access token required");
 
-    const decoded = jwt.verify(token, authConfig.jwtSecret) as JwtPayload;
+    const decoded = jwt.verify(token, config.auth.jwtSecret) as JwtPayload;
 
     (req as Request & { user: JwtUser }).user = {
       id: decoded.id,
@@ -79,8 +79,7 @@ export function canAccessUser(req: Request, res: Response, next: NextFunction) {
     if (user.role === "admin") return next();
 
     // Regular users can only access their own resources
-    if (user.id !== targetUserId)
-      return next(new ApiError(403, "Forbidden: You can only access your own profile"));
+    if (user.id !== targetUserId) return next(new ApiError(403, "Forbidden: You can only access your own profile"));
 
     next();
   } catch (error) {

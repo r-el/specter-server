@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import logger from "@core/utils/logger.js";
-import { serverConfig } from "@core/config/server.js";
+import { config } from "@core/config.js";
 
-const ENVIRONMENT = serverConfig.environment;
+const ENVIRONMENT = config.server.environment;
 
 /**
  * @param {number} statusCode - HTTP status code
@@ -14,7 +14,7 @@ class ApiError extends Error {
 
   constructor(statusCode: number, message: string) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.statusCode = statusCode;
 
     Error.captureStackTrace(this, this.constructor);
@@ -27,7 +27,8 @@ type AsyncHandler<Req = Request> = (req: Req, res: Response, next: NextFunction)
  * Async error wrapper
  * Catches async errors and passes them to error handler
  */
-const catchAsync = <Req = Request>(fn: AsyncHandler<Req>) =>
+const catchAsync =
+  <Req = Request>(fn: AsyncHandler<Req>) =>
   (req: Request, res: Response, next: NextFunction) =>
     Promise.resolve(fn(req as unknown as Req, res, next)).catch(next);
 

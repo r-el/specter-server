@@ -12,23 +12,14 @@ import { Server as SocketIOServer } from "socket.io";
 import logger from "@core/utils/logger.js";
 import { container } from "@core/di.js";
 import { CameraService } from "@cameras/cameraService.js";
-import { corsConfig } from "@core/config/cors.js";
+import { config } from "@core/config.js";
 import { socketAuthMiddleware } from "./socketAuth.js";
 import { joinAuthorizedCameras, registerRoomHandlers } from "./cameraRoomManager.js";
 import { NotificationDispatcher } from "./notificationDispatcher.js";
 import type { Server as HttpServer } from "http";
-import type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-  SocketData,
-} from "./types.js";
+import type { ServerToClientEvents, ClientToServerEvents, SocketData } from "./types.js";
 
-type AppServer = SocketIOServer<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  SocketData
->;
+type AppServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 let dispatcher: NotificationDispatcher | null = null;
 let io: AppServer | null = null;
@@ -42,9 +33,9 @@ let io: AppServer | null = null;
 export function initializeSocketServer(httpServer: HttpServer): NotificationDispatcher {
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: corsConfig.origin,
-      methods: corsConfig.methods,
-      credentials: corsConfig.credentials,
+      origin: config.cors.origin,
+      methods: [...config.cors.methods],
+      credentials: config.cors.credentials,
     },
     // Only use WebSocket — skip long-polling for lower latency
     transports: ["websocket", "polling"],
@@ -85,9 +76,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
  */
 export function getNotificationDispatcher(): NotificationDispatcher {
   if (!dispatcher) {
-    throw new Error(
-      "NotificationDispatcher not initialized — call initializeSocketServer() first",
-    );
+    throw new Error("NotificationDispatcher not initialized — call initializeSocketServer() first");
   }
   return dispatcher;
 }

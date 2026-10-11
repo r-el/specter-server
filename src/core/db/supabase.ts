@@ -4,19 +4,19 @@ import logger from "@core/utils/logger.js";
  * Manages connection to Supabase for users data
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { supabaseConfig } from "../config/database.js";
+import { config } from "../config.js";
 
 let supabase: SupabaseClient | null = null;
 
 // Validate environment variables - Do not exit process in testing environments
-if (!supabaseConfig.url || !supabaseConfig.key) {
+if (!config.database.supabase.url || !config.database.supabase.key) {
   logger.error("✘ Missing Supabase configuration. Please check your env variables.");
-  if (process.env.NODE_ENV !== 'test') {
+  if (process.env.NODE_ENV !== "test") {
     process.exit(1);
   }
 } else {
   // Create Supabase client
-  supabase = createClient(supabaseConfig.url, supabaseConfig.key);
+  supabase = createClient(config.database.supabase.url, config.database.supabase.key);
 }
 
 async function testSupabaseConnection() {

@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
-import { authConfig } from "@core/config/auth.js";
+import { config } from "@core/config.js";
 
-const BCRYPT_SALT_ROUNDS = authConfig.bcryptSaltRounds;
+const BCRYPT_SALT_ROUNDS = config.auth.bcryptSaltRounds;
 
 export async function hashPassword(password: string): Promise<string> {
   if (!password) throw new Error("Password cannot be empty");

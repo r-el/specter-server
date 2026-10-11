@@ -6,7 +6,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { corsConfig } from "./core/config/cors.js";
+import { config } from "./core/config.js";
 import { ApiError, globalErrorHandler } from "./core/middlewares/errorHandler.js";
 import { globalLimiter } from "./core/middlewares/rateLimiter.js";
 import rootRoutes from "./core/rootRoutes.js";
@@ -39,7 +39,7 @@ app.use(
 app.disable("x-powered-by");
 
 // CORS
-app.use(cors(corsConfig));
+app.use(cors(config.cors));
 
 // Body parser
 app.use(express.json({ limit: "10mb" }));

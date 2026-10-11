@@ -8,21 +8,12 @@
  */
 
 import jwt from "jsonwebtoken";
-import { authConfig } from "@core/config/auth.js";
+import { config } from "@core/config.js";
 import logger from "@core/utils/logger.js";
 import type { Socket } from "socket.io";
-import type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-  SocketData,
-} from "./types.js";
+import type { ServerToClientEvents, ClientToServerEvents, SocketData } from "./types.js";
 
-type AppSocket = Socket<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  SocketData
->;
+type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 /**
  * Socket.IO middleware that authenticates the handshake.
@@ -32,10 +23,7 @@ type AppSocket = Socket<
  * io("http://…", { auth: { token: "Bearer <jwt>" } })
  * ```
  */
-export function socketAuthMiddleware(
-  socket: AppSocket,
-  next: (err?: Error) => void,
-): void {
+export function socketAuthMiddleware(socket: AppSocket, next: (err?: Error) => void): void {
   try {
     const raw = socket.handshake.auth?.token as string | undefined;
 
@@ -46,7 +34,7 @@ export function socketAuthMiddleware(
     // Accept both "Bearer <token>" and a bare token
     const token = raw.startsWith("Bearer ") ? raw.slice(7) : raw;
 
-    const decoded = jwt.verify(token, authConfig.jwtSecret!) as {
+    const decoded = jwt.verify(token, config.auth.jwtSecret!) as {
       id: string;
       username: string;
       role: string;

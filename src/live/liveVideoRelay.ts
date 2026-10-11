@@ -12,7 +12,7 @@ import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Duplex } from "node:stream";
 import jwt from "jsonwebtoken";
 import WebSocket, { WebSocketServer } from "ws";
-import { authConfig } from "@core/config/auth.js";
+import { config } from "@core/config.js";
 import logger from "@core/utils/logger.js";
 import { isSpecterId, SpecterHttpClient } from "@specter/specterHttpClient.js";
 import type { SpecterConfig } from "@specter/specterConfig.js";
@@ -39,7 +39,7 @@ function forgetExpiredTickets(nowSeconds: number): void {
 }
 
 export function issueLiveTicket(userId: string, cameraId: string): { ticket: string; expires_in: number } {
-  const ticket = jwt.sign({ camera_id: cameraId, jti: randomUUID() }, authConfig.jwtSecret, {
+  const ticket = jwt.sign({ camera_id: cameraId, jti: randomUUID() }, config.auth.jwtSecret, {
     subject: userId,
     audience: TICKET_AUDIENCE,
     expiresIn: TICKET_LIFETIME_SECONDS,
@@ -52,7 +52,7 @@ export function redeemLiveTicket(ticket: string | null, cameraId: string): LiveT
   if (!ticket) return null;
   let payload: LiveTicket & { exp: number };
   try {
-    payload = jwt.verify(ticket, authConfig.jwtSecret, { audience: TICKET_AUDIENCE }) as LiveTicket & { exp: number };
+    payload = jwt.verify(ticket, config.auth.jwtSecret, { audience: TICKET_AUDIENCE }) as LiveTicket & { exp: number };
   } catch {
     return null;
   }
@@ -84,11 +84,7 @@ function closeCode(code: number): number {
 }
 
 /** Relays /api/cameras/{camera_id}/live/mse?ticket=... to Specter's MSE WebSocket. */
-export function attachLiveVideoRelay(
-  httpServer: HttpServer,
-  specter: SpecterHttpClient,
-  config: SpecterConfig,
-): void {
+export function attachLiveVideoRelay(httpServer: HttpServer, specter: SpecterHttpClient, config: SpecterConfig): void {
   const webSocketServer = new WebSocketServer({ noServer: true });
   const specterWebSocketBase = config.apiUrl.replace(/^http/, "ws");
 
@@ -110,10 +106,9 @@ export function attachLiveVideoRelay(
     }
 
     webSocketServer.handleUpgrade(request, socket, head, (viewer) => {
-      const upstream = new WebSocket(
-        `${specterWebSocketBase}/owners/${specter.ownerId}/cameras/${cameraId}/live/mse`,
-        { headers: { Authorization: authorization } },
-      );
+      const upstream = new WebSocket(`${specterWebSocketBase}/owners/${specter.ownerId}/cameras/${cameraId}/live/mse`, {
+        headers: { Authorization: authorization },
+      });
       relayMessages(viewer, upstream);
       relayMessages(upstream, viewer);
       upstream.on("close", (code, reason) => viewer.close(closeCode(code), reason));

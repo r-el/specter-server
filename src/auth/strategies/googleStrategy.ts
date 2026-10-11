@@ -16,7 +16,7 @@ import { injectable, inject, delay } from "tsyringe";
 import { OAuth2Client } from "google-auth-library";
 import { UserService } from "@users/userService.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
-import { googleConfig } from "@core/config/google.js";
+import { config } from "@core/config.js";
 import logger from "@core/utils/logger.js";
 import type { IAuthStrategy, AuthResult } from "./IAuthStrategy.js";
 
@@ -29,10 +29,8 @@ export class GoogleStrategy implements IAuthStrategy {
   readonly strategyName = "google";
   private readonly client: OAuth2Client;
 
-  constructor(
-    @inject(delay(() => UserService)) private userService: UserService,
-  ) {
-    this.client = new OAuth2Client(googleConfig.clientId);
+  constructor(@inject(delay(() => UserService)) private userService: UserService) {
+    this.client = new OAuth2Client(config.google.clientId);
   }
 
   async authenticate(credentials: unknown): Promise<AuthResult> {
@@ -59,7 +57,7 @@ export class GoogleStrategy implements IAuthStrategy {
     try {
       const ticket = await this.client.verifyIdToken({
         idToken,
-        audience: googleConfig.clientId,
+        audience: config.google.clientId,
       });
 
       const payload = ticket.getPayload();

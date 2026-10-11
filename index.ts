@@ -4,7 +4,7 @@
  */
 import "reflect-metadata";
 import { testSupabaseConnection } from "@core/db/supabase.js";
-import { serverConfig } from "@core/config/server.js";
+import { config } from "@core/config.js";
 import { container } from "@core/di.js";
 import app from "./src/server.js";
 import logger from "@core/utils/logger.js";
@@ -18,8 +18,8 @@ import type { SpecterHttpClient } from "@specter/specterHttpClient.js";
 import type { SpecterEventStream } from "@specter/specterEventStream.js";
 import type { SpecterCatalog } from "@specter/specterCatalog.js";
 
-const HOST = serverConfig.host;
-const PORT = Number(serverConfig.port);
+const HOST = config.server.host;
+const PORT = config.server.port;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 const eventStream = container.resolve<SpecterEventStream>(SPECTER_EVENT_STREAM);
@@ -59,7 +59,7 @@ async function startServer(): Promise<void> {
     }
 
     httpServer = app.listen(PORT, HOST, () => {
-      logger.info("Specter server started", { host: HOST, port: PORT, environment: serverConfig.environment });
+      logger.info("Specter server started", { host: HOST, port: PORT, environment: config.server.environment });
     });
     const dispatcher = initializeSocketServer(httpServer);
     attachLiveVideoRelay(

@@ -8,12 +8,12 @@
 
 import { injectable } from "tsyringe";
 import sgMail from "@sendgrid/mail";
-import { emailConfig } from "@core/config/email.js";
+import { config } from "@core/config.js";
 import logger from "@core/utils/logger.js";
 
 // Initialize SendGrid if API key is provided
-if (emailConfig.sendgridApiKey) {
-  sgMail.setApiKey(emailConfig.sendgridApiKey);
+if (config.email.sendgridApiKey) {
+  sgMail.setApiKey(config.email.sendgridApiKey);
 }
 
 @injectable()
@@ -22,13 +22,8 @@ export class EmailService {
    * Send a general email.
    * Prefer using the specific helper methods below instead of this one directly.
    */
-  async sendEmail(options: {
-    to: string;
-    subject: string;
-    text?: string;
-    html?: string;
-  }): Promise<boolean> {
-    if (!emailConfig.sendgridApiKey) {
+  async sendEmail(options: { to: string; subject: string; text?: string; html?: string }): Promise<boolean> {
+    if (!config.email.sendgridApiKey) {
       logger.warn("SendGrid API key not configured, skipping email send", {
         to: options.to,
         subject: options.subject,
@@ -40,8 +35,8 @@ export class EmailService {
       await sgMail.send({
         to: options.to,
         from: {
-          email: emailConfig.senderEmail,
-          name: emailConfig.senderName,
+          email: config.email.senderEmail,
+          name: config.email.senderName,
         },
         subject: options.subject,
         text: options.text,

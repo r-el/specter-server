@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import WebSocket, { WebSocketServer } from "ws";
-import { authConfig } from "@core/config/auth.js";
+import { config } from "@core/config.js";
 import { attachLiveVideoRelay, issueLiveTicket, redeemLiveTicket } from "@live/liveVideoRelay.js";
 import { SpecterHttpClient } from "@specter/specterHttpClient.js";
 
@@ -14,7 +14,7 @@ const OTHER_CAMERA_ID = `camera_${"2".repeat(32)}`;
 const closers: Array<() => void> = [];
 
 beforeAll(() => {
-  authConfig.jwtSecret = "test-jwt-secret";
+  config.auth.jwtSecret = "test-jwt-secret";
 });
 
 afterEach(() => {
@@ -69,7 +69,7 @@ describe("live tickets", () => {
 
   it("refuse an access token used as a ticket", async () => {
     const { default: jwt } = await import("jsonwebtoken");
-    const accessToken = jwt.sign({ id: "user-1", role: "admin" }, authConfig.jwtSecret);
+    const accessToken = jwt.sign({ id: "user-1", role: "admin" }, config.auth.jwtSecret);
 
     expect(redeemLiveTicket(accessToken, CAMERA_ID)).toBeNull();
   });
