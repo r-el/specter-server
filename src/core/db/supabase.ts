@@ -11,7 +11,7 @@ let supabase: SupabaseClient | null = null;
 // Validate environment variables - Do not exit process in testing environments
 if (!config.database.supabase.url || !config.database.supabase.key) {
   logger.error("✘ Missing Supabase configuration. Please check your env variables.");
-  if (process.env.NODE_ENV !== "test") {
+  if (config.server.environment !== "test") {
     process.exit(1);
   }
 } else {

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { config } from "@core/config.js";
 import { container } from "@core/di.js";
 import { SPECTER_EVENT_STREAM, SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
 import type { SpecterHttpClient } from "@specter/specterHttpClient.js";
@@ -20,6 +21,6 @@ export const healthController = async (req: Request, res: Response) => {
     },
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || "development",
+    environment: config.server.environment,
   });
 };
