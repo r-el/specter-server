@@ -8,19 +8,10 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import { config } from "./core/config.js";
-import { ApiError, globalErrorHandler, NotFoundError } from "./core/middlewares/errorHandler.js";
-import { globalLimiter } from "./core/middlewares/rateLimiter.js";
+import { globalErrorHandler, NotFoundError } from "./core/middlewares/errorHandler.js";
 import { requestLogger } from "./core/middlewares/requestLogger.js";
-import rootRoutes from "./core/rootRoutes.js";
-import healthRoutes from "./core/healthRoutes.js";
-import authRoutes from "./auth/authRoutes.js";
-import userRoutes from "./users/userRoutes.js";
-import cameraRoutes from "./cameras/cameraRoutes.js";
-import alertRoutes from "./alerts/alertRoutes.js";
-import watchlistRoutes, { enrollmentBatchRoutes } from "./watchlists/watchlistRoutes.js";
-import dashboardRoutes from "./dashboard/dashboardRoutes.js";
 import { setupSwagger } from "./core/swagger.js";
-import agentRoutes, { agentHeartbeatRoutes } from "./agents/agentRoutes.js";
+import apiRouter from "./apiRouter.js";
 
 const app = express();
 
@@ -53,21 +44,8 @@ app.use(cors(config.cors));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-const api = express.Router();
-api.use(globalLimiter);
-api.use("/", rootRoutes);
-api.use("/", healthRoutes);
-api.use("/auth", authRoutes);
-api.use("/users", userRoutes);
-api.use("/cameras", cameraRoutes);
-api.use("/alerts", alertRoutes);
-api.use("/watchlists", watchlistRoutes);
-api.use("/enrollment-batches", enrollmentBatchRoutes);
-api.use("/dashboard", dashboardRoutes);
-api.use("/agents", agentRoutes);
-api.use("/agent", agentHeartbeatRoutes);
-api.use((req, res, next) => next(new ApiError(404, "Not found")));
-app.use("/api", api);
+// API routes
+app.use("/api", apiRouter);
 
 // Setup Swagger UI
 setupSwagger(app);
