@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import { ZodError } from "zod";
 import logger from "@core/utils/logger.js";
 import { config } from "@core/config.js";
 import { ApiError } from "@core/utils/errors.js";
-
-const ENVIRONMENT = config.server.environment;
 
 type AsyncHandler<Req = Request> = (req: Req, res: Response, next: NextFunction) => Promise<void | any>;
 
@@ -20,22 +19,38 @@ const catchAsync =
  * Global error handling middleware
  */
 const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-  const message = err.message || String(err);
+  const isZod = err instanceof ZodError;
+  const statusCode = err.statusCode || (isZod ? 400 : 500);
+  const isClientError = statusCode < 500;
+  const rawMessage = isZod
+    ? err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") || "Validation failed"
+    : err.message || String(err);
 
-  // Log error
-  logger.error(`${new Date().toISOString()} - ERROR:`, {
-    message,
-    stack: err.stack,
-    url: req.originalUrl,
-    method: req.method,
-    ip: req.ip,
-  });
+  // Differentiate log severity: client errors (4xx) as warn, server errors (500+) as error with stack
+  if (isClientError) {
+    logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} ${rawMessage}`);
+  } else {
+    logger.error(`${new Date().toISOString()} - ERROR:`, {
+      message: rawMessage,
+      stack: err.stack,
+      url: req.originalUrl,
+      method: req.method,
+      ip: req.ip,
+    });
+  }
 
-  res.status(err.statusCode || 500).json({
+  // In production, mask internal server error details to prevent data leakage
+  const errorResponse =
+    isClientError || !config.server.isProduction
+      ? rawMessage || "Internal server error"
+      : "An unexpected error occurred";
+
+  res.status(statusCode).json({
     success: false,
-    error: message || "Internal server error",
+    error: errorResponse,
     ...(err.errors && { errors: err.errors }),
-    ...(ENVIRONMENT === "development" && { stack: err.stack }),
+    ...(isZod && { errors: err.issues }),
+    ...(config.server.environment === "development" && { stack: err.stack }),
   });
 };
 
