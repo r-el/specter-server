@@ -158,7 +158,9 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       const owner = await userService.getUserById(agent.owner_id);
       const user = owner ? { id: owner.id, role: owner.role } : { id: agent.owner_id, role: "operator" };
       const cameras = await cameraService.listAccessibleCameras(user);
-      socket.emit("cameras:sync", { cameras });
+      if (cameras.length > 0) {
+        socket.emit("cameras:sync", { cameras });
+      }
     } catch (err) {
       logger.error("Failed to emit initial cameras:sync to agent", {
         agentId: agent.id,
