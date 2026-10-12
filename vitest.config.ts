@@ -32,6 +32,7 @@ export default defineConfig({
       "@alerts": path.resolve(__dirname, "./src/alerts"),
       "@watchlists": path.resolve(__dirname, "./src/watchlists"),
       "@live": path.resolve(__dirname, "./src/live"),
+      "@agents": path.resolve(__dirname, "./src/agents"),
       "~types": path.resolve(__dirname, "./src/@types"),
     },
   },

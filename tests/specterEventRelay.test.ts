@@ -16,6 +16,7 @@ function buildRelay() {
     toCameraAndRoles: (...args) => calls.push(["toCameraAndRoles", ...args]),
     joinCameraByRole: (...args) => calls.push(["joinCameraByRole", ...args]),
     closeCamera: (...args) => calls.push(["closeCamera", ...args]),
+    toAgents: (...args) => calls.push(["toAgents", ...args]),
   } as Partial<NotificationDispatcher> as NotificationDispatcher;
   const catalog = {
     read: async () => ({
@@ -84,6 +85,6 @@ describe("SpecterEventRelay", () => {
       },
     });
 
-    expect(calls.map(([method]) => method)).toEqual(["joinCameraByRole", "toCameraAndRoles"]);
+    expect(calls.map(([method]) => method)).toEqual(["joinCameraByRole", "toCameraAndRoles", "toAgents"]);
   });
 });

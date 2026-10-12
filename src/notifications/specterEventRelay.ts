@@ -54,10 +54,7 @@ export class SpecterEventRelay {
         );
         return;
       case "enrollment_status_changed":
-        this.dispatcher.toRoles(
-          MANAGER_ROLES,
-          NotificationFactory.enrollment(event.message, await this.readCatalog()),
-        );
+        this.dispatcher.toRoles(MANAGER_ROLES, NotificationFactory.enrollment(event.message, await this.readCatalog()));
         return;
       case "configuration_changed":
         this.relayConfigurationChange(event.message);
@@ -75,6 +72,12 @@ export class SpecterEventRelay {
     // Viewers of the camera learn about it too, before its room closes on deletion.
     this.dispatcher.toCameraAndRoles(message.entity_id, MANAGER_ROLES, notification);
     if (message.change_kind === "deleted") this.dispatcher.closeCamera(message.entity_id);
+
+    // Forward camera configuration changes to edge agents
+    this.dispatcher.toAgents("cameras:updated", {
+      change_kind: message.change_kind,
+      camera_id: message.entity_id,
+    });
   }
 
   private async readCatalog(): Promise<CatalogSnapshot> {

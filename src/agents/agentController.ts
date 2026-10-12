@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { catchAsync } from "@core/middlewares/errorHandler.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
+import { container } from "@core/di.js";
+import { CameraService } from "@cameras/cameraService.js";
+import { UserService } from "@users/userService.js";
 import { authenticateAgent, createAgent, heartbeatAgent, listAgents, revokeAgent } from "./agentService.js";
 import type { JwtUser } from "~types/request.js";
 
@@ -45,6 +48,20 @@ export const AgentController = {
         owner_id: req.agent.owner_id,
         status: "online",
         received_at: new Date().toISOString(),
+      },
+    });
+  }),
+
+  listCameras: catchAsync<AgentRequest>(async (req, res) => {
+    const cameraService = container.resolve(CameraService);
+    const userService = container.resolve(UserService);
+    const owner = await userService.getUserById(req.agent.owner_id);
+    const user = owner ? { id: owner.id, role: owner.role } : { id: req.agent.owner_id, role: "operator" };
+    const cameras = await cameraService.listAccessibleCameras(user);
+    res.json({
+      success: true,
+      data: {
+        cameras,
       },
     });
   }),

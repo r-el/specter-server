@@ -22,5 +22,6 @@ agentHeartbeatRoutes.post(
   AgentController.authenticate,
   AgentController.heartbeat,
 );
+agentHeartbeatRoutes.get("/cameras", AgentController.authenticate, AgentController.listCameras);
 
 export default router;

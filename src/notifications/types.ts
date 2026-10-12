@@ -108,3 +108,27 @@ export interface SocketData {
   username: string;
   role: string;
 }
+
+// ---------------------------------------------------------------------------
+// Agent Socket.IO event map — contract for Edge Agents (/agent namespace)
+// ---------------------------------------------------------------------------
+
+export interface AgentServerToClientEvents {
+  "cameras:sync": (payload: { cameras: unknown[] }) => void;
+  "cameras:updated": (payload: { change_kind: string; camera_id: string; camera?: unknown }) => void;
+  "agent:heartbeat:ack": (payload: { received_at: string }) => void;
+  error: (payload: { message: string }) => void;
+}
+
+export interface AgentClientToServerEvents {
+  "agent:heartbeat": (payload?: { name?: string; version?: string }) => void;
+  "cameras:request_sync": () => void;
+}
+
+export interface AgentSocketData {
+  agent: {
+    id: string;
+    owner_id: string;
+    name: string;
+  };
+}

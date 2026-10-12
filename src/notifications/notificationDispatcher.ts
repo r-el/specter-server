@@ -12,19 +12,9 @@
 import logger from "@core/utils/logger.js";
 import { cameraRoom, roleRoom } from "./cameraRoomManager.js";
 import type { Server } from "socket.io";
-import type {
-  Notification,
-  ServerToClientEvents,
-  ClientToServerEvents,
-  SocketData,
-} from "./types.js";
+import type { Notification, ServerToClientEvents, ClientToServerEvents, SocketData } from "./types.js";
 
-type AppServer = Server<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  SocketData
->;
+type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 export class NotificationDispatcher {
   constructor(private readonly io: AppServer) {}
@@ -89,6 +79,38 @@ export class NotificationDispatcher {
       socketCount: userSockets.length,
       kind: notification.kind,
     });
+  }
+
+  /**
+   * Sends an event to every connected agent in the /agent namespace.
+   */
+  toAgents(event: string, data: unknown): void {
+    this.io.of("/agent").emit(event as any, data);
+    logger.debug("Event dispatched to all agents", { event });
+  }
+
+  /**
+   * Sends an event to all agents belonging to a specific owner.
+   */
+  toOwnerAgents(ownerId: string, event: string, data: unknown): void {
+    const room = `owner:${ownerId}:agents`;
+    this.io
+      .of("/agent")
+      .to(room)
+      .emit(event as any, data);
+    logger.debug("Event dispatched to owner agents room", { room, event });
+  }
+
+  /**
+   * Sends an event to a single specific agent.
+   */
+  toAgent(agentId: string, event: string, data: unknown): void {
+    const room = `agent:${agentId}`;
+    this.io
+      .of("/agent")
+      .to(room)
+      .emit(event as any, data);
+    logger.debug("Event dispatched to agent room", { room, event });
   }
 
   /** How many clients are currently connected. */
