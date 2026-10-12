@@ -13,6 +13,8 @@ import logger from "@core/utils/logger.js";
 import { container } from "@core/di.js";
 import { CameraService } from "@cameras/cameraService.js";
 import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
+import { AgentAlertStore } from "@alerts/infrastructure/agentAlertStore.js";
+import type { SpecterAlert } from "@specter/specterTypes.js";
 import type { ICamera, CameraLiveStatus } from "~types/interfaces.js";
 import { UserService } from "@users/userService.js";
 import { heartbeatAgent } from "@agents/agentService.js";
@@ -212,32 +214,78 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
 
     // Edge agent alert reception (store & forward ingestion)
     socket.on("agent:alert", (payload: unknown) => {
-      const raw = payload as Record<string, any>;
-      logger.info("Received alert from edge agent", {
-        agentId: agent.id,
-        alertId: raw?.alert_id,
-      });
+      try {
+        const raw = (payload as Record<string, any>) ?? {};
+        const inner = (raw.payload as Record<string, any>) ?? raw;
+        const alertId = (raw.alert_id || inner.message_id || `alert_${Date.now()}`) as string;
+        const cameraId = (inner.camera_id || raw.camera_id || "") as string;
 
-      if (raw && raw.alert_id && dispatcher) {
-        const notif = {
-          kind: "alert" as const,
-          alertId: raw.alert_id,
-          alertKind: (raw.target_id ? "identity_match" : "rule") as "identity_match" | "rule",
-          cameraId: raw.camera_id,
-          cameraName: raw.camera_name ?? null,
-          targetId: raw.target_id ?? null,
-          targetLabel: raw.target_label ?? null,
-          watchlistName: raw.watchlist_name ?? null,
-          watchlistKind: raw.watchlist_kind ?? null,
-          similarity: raw.similarity ?? null,
-          ruleKind: raw.rule_kind ?? null,
-          objectClass: raw.object_class ?? "person",
-          level: (raw.severity ?? "warning") as "critical" | "warning" | "info",
-          snapshotUrl: raw.snapshot_url ?? null,
-          timestamp: raw.created_at ?? new Date().toISOString(),
+        logger.info("Received alert from edge agent", {
+          agentId: agent.id,
+          alertId,
+          cameraId,
+        });
+
+        const isMatch = raw.kind === "match_confirmed" || !!inner.target_id;
+        const alertRecord: SpecterAlert = {
+          id: alertId,
+          kind: isMatch ? "identity_match" : "rule",
+          owner_id: agent.owner_id || inner.owner_id || "facealert",
+          camera_id: cameraId,
+          track_id: inner.track_id ?? 0,
+          object_class: inner.object_class ?? "person",
+          bounding_box: inner.bounding_box ?? { x: 0, y: 0, width: 0, height: 0 },
+          frame_captured_at: inner.frame_captured_at ?? new Date().toISOString(),
+          created_at: raw.created_at ?? inner.occurred_at ?? new Date().toISOString(),
+          has_snapshot: !!raw.snapshot_base64,
+          review: {
+            disposition: "unreviewed",
+            is_acknowledged: false,
+            note: null,
+          },
+          watchlist_id: inner.watchlist_id ?? null,
+          target_id: inner.target_id ?? null,
+          modality: inner.modality ?? null,
+          similarity_ratio: inner.similarity_ratio ?? null,
+          margin_ratio: inner.margin_ratio ?? null,
+          rule_id: inner.rule_id ?? null,
+          rule_kind: inner.rule_kind ?? null,
+          zone_id: inner.zone_id ?? null,
+          dwell_seconds: inner.dwell_seconds ?? null,
+          crossing_direction: inner.crossing_direction ?? null,
         };
-        dispatcher.toCamera(raw.camera_id, notif);
-        dispatcher.broadcast(notif);
+
+        const agentAlertStore = container.resolve(AgentAlertStore);
+        agentAlertStore.addAlert(alertRecord, raw.snapshot_base64);
+
+        if (dispatcher) {
+          const notif = {
+            kind: "alert" as const,
+            alertId,
+            alertKind: (isMatch ? "identity_match" : "rule") as "identity_match" | "rule",
+            cameraId,
+            cameraName: inner.camera_name ?? raw.camera_name ?? null,
+            targetId: inner.target_id ?? raw.target_id ?? null,
+            targetLabel: inner.target_label ?? raw.target_label ?? null,
+            watchlistName: inner.watchlist_name ?? raw.watchlist_name ?? null,
+            watchlistKind: inner.watchlist_kind ?? raw.watchlist_kind ?? null,
+            similarity: inner.similarity_ratio ?? raw.similarity ?? null,
+            ruleKind: inner.rule_kind ?? raw.rule_kind ?? null,
+            objectClass: inner.object_class ?? raw.object_class ?? "person",
+            level: (raw.severity ?? "warning") as "critical" | "warning" | "info",
+            snapshotUrl: `/api/alerts/${alertId}/snapshot`,
+            timestamp: alertRecord.created_at,
+          };
+          if (cameraId) {
+            dispatcher.toCamera(cameraId, notif);
+          }
+          dispatcher.broadcast(notif);
+        }
+      } catch (err) {
+        logger.error("Failed to process agent:alert", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
 
