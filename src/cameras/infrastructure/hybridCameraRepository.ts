@@ -73,7 +73,11 @@ export class HybridCameraRepository implements CameraRepository {
     this.agentStore.updateCameraStatus(cameraId, "starting");
     try {
       const dispatcher = await getDispatcherSafe();
-      dispatcher?.toAgents("agent:camera:start", { cameraId });
+      if (camera.created_by) {
+        dispatcher?.toOwnerAgents(camera.created_by, "agent:camera:start", { cameraId });
+      } else {
+        dispatcher?.toAgents("agent:camera:start", { cameraId });
+      }
       dispatcher?.broadcast({
         kind: "camera_status",
         cameraId,
@@ -106,7 +110,11 @@ export class HybridCameraRepository implements CameraRepository {
     this.agentStore.updateCameraStatus(cameraId, "stopped");
     try {
       const dispatcher = await getDispatcherSafe();
-      dispatcher?.toAgents("agent:camera:stop", { cameraId });
+      if (camera.created_by) {
+        dispatcher?.toOwnerAgents(camera.created_by, "agent:camera:stop", { cameraId });
+      } else {
+        dispatcher?.toAgents("agent:camera:stop", { cameraId });
+      }
       dispatcher?.broadcast({
         kind: "camera_status",
         cameraId,
@@ -193,11 +201,19 @@ export class HybridCameraRepository implements CameraRepository {
 
     try {
       const dispatcher = await getDispatcherSafe();
-      dispatcher?.toAgents("cameras:updated", {
-        change_kind: "updated",
-        camera_id: cameraId,
-        camera: changes,
-      });
+      if (camera.created_by) {
+        dispatcher?.toOwnerAgents(camera.created_by, "cameras:updated", {
+          change_kind: "updated",
+          camera_id: cameraId,
+          camera: changes,
+        });
+      } else {
+        dispatcher?.toAgents("cameras:updated", {
+          change_kind: "updated",
+          camera_id: cameraId,
+          camera: changes,
+        });
+      }
       dispatcher?.broadcast({
         kind: "configuration_changed",
         entityKind: "camera",
@@ -222,13 +238,21 @@ export class HybridCameraRepository implements CameraRepository {
       logger.debug("Local Specter unavailable for delete, removing from AgentCameraStore", { cameraId });
     }
 
+    const camera = this.agentStore.getCamera(cameraId);
     this.agentStore.removeCamera(cameraId);
     try {
       const dispatcher = await getDispatcherSafe();
-      dispatcher?.toAgents("cameras:updated", {
-        change_kind: "deleted",
-        camera_id: cameraId,
-      });
+      if (camera?.created_by) {
+        dispatcher?.toOwnerAgents(camera.created_by, "cameras:updated", {
+          change_kind: "deleted",
+          camera_id: cameraId,
+        });
+      } else {
+        dispatcher?.toAgents("cameras:updated", {
+          change_kind: "deleted",
+          camera_id: cameraId,
+        });
+      }
       dispatcher?.broadcast({
         kind: "configuration_changed",
         entityKind: "camera",

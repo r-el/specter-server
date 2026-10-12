@@ -89,7 +89,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
         });
         const ownerId = camera.created_by ?? "default";
         const ownerRoom = `owner:${ownerId}:agents`;
-        agentNamespace.to(ownerRoom).to("agents").emit("webrtc:offer", {
+        agentNamespace.to(ownerRoom).emit("webrtc:offer", {
           cameraId: payload.cameraId,
           sdp: payload.sdp,
           correlationId: payload.correlationId,
@@ -114,7 +114,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
           });
           const ownerId = camera.created_by ?? "default";
           const ownerRoom = `owner:${ownerId}:agents`;
-          agentNamespace.to(ownerRoom).to("agents").emit("webrtc:ice_candidate", {
+          agentNamespace.to(ownerRoom).emit("webrtc:ice_candidate", {
             cameraId: payload.cameraId,
             candidate: payload.candidate,
             correlationId: payload.correlationId,
@@ -154,7 +154,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       try {
         const agentCameraStore = container.resolve(AgentCameraStore);
         const cameras = (payload?.cameras ?? []) as ICamera[];
-        agentCameraStore.setCameras(agent.owner_id, cameras);
+        agentCameraStore.setCameras(agent.id, agent.owner_id, cameras);
         logger.info("Synced cameras from edge agent", {
           agentId: agent.id,
           ownerId: agent.owner_id,
@@ -350,6 +350,9 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       try {
         const { WatchlistService } = await import("@watchlists/watchlistService.js");
         const watchlistService = container.resolve(WatchlistService);
+        // TODO: listWatchlists() is scoped to the SpecterHttpClient's configured ownerId,
+        // not the connecting agent's owner_id. In a multi-tenant deployment this may return
+        // watchlists belonging to a different owner. Needs owner-scoped filtering.
         const watchlists = await watchlistService.listWatchlists();
         socket.emit("watchlists:sync", { watchlists });
       } catch (err) {
@@ -362,6 +365,8 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
 
     socket.on("disconnect", (reason) => {
       logger.info("Agent socket disconnected", { agentId: agent.id, socketId: socket.id, reason });
+      const agentCameraStore = container.resolve(AgentCameraStore);
+      agentCameraStore.markAgentCamerasOffline(agent.id);
     });
 
     // ── Async joins and initial queries ──
