@@ -393,6 +393,9 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
     await socket.join(ownerRoom);
     await socket.join("agents");
 
+    // Request camera catalog from agent immediately upon connection
+    socket.emit("agent:cameras:request_sync");
+
     // Initial watchlist sync on connection
     try {
       const { WatchlistService } = await import("@watchlists/watchlistService.js");

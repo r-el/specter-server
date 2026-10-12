@@ -124,6 +124,7 @@ export interface AgentServerToClientEvents {
   "agent:heartbeat:ack": (payload: { received_at: string }) => void;
   "agent:camera:start": (payload: { cameraId: string }) => void;
   "agent:camera:stop": (payload: { cameraId: string }) => void;
+  "agent:cameras:request_sync": () => void;
   "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
   "webrtc:ice_candidate": (payload: {
     cameraId: string;
