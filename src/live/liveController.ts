@@ -30,7 +30,7 @@ export class LiveController {
   static getIceServers = catchAsync(async (req: TypedRequest<typeof getCameraSchema>, res: Response) => {
     const { camera_id } = req.params;
     await container.resolve(CameraService).getAccessibleCamera(camera_id, req.user);
-    const { getWebrtcIceServers } = await import("@core/config.js");
-    res.json({ success: true, data: { iceServers: getWebrtcIceServers() } });
+    const { fetchWebrtcIceServers } = await import("@core/config.js");
+    res.json({ success: true, data: { iceServers: await fetchWebrtcIceServers() } });
   });
 }

@@ -82,6 +82,50 @@ export function getWebrtcIceServers(): RtcIceServer[] {
   ];
 }
 
+let cachedDynamicIceServers: { servers: RtcIceServer[]; expiresAt: number } | null = null;
+
+export async function fetchWebrtcIceServers(): Promise<RtcIceServer[]> {
+  const { turnKeyId, turnApiToken } = config.webrtc;
+  if (!turnKeyId || !turnApiToken) {
+    return getWebrtcIceServers();
+  }
+
+  const now = Date.now();
+  if (cachedDynamicIceServers && cachedDynamicIceServers.expiresAt > now) {
+    return cachedDynamicIceServers.servers;
+  }
+
+  try {
+    const res = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(turnKeyId)}/credentials/generate-ice-servers`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${turnApiToken}`,
+          "Content-Type": "application/json",
+          "User-Agent": "specter-server/1.0",
+        },
+        body: JSON.stringify({ ttl: 86400 }),
+      },
+    );
+
+    if (res.ok) {
+      const data = (await res.json()) as { iceServers?: RtcIceServer[] };
+      if (Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+        cachedDynamicIceServers = {
+          servers: data.iceServers,
+          expiresAt: now + 12 * 3600 * 1000,
+        };
+        return data.iceServers;
+      }
+    }
+  } catch {
+    // Network or parse error fallback
+  }
+
+  return getWebrtcIceServers();
+}
+
 export type Config = typeof config;
 
 export default config;
