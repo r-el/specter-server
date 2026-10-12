@@ -76,6 +76,55 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
     // Register dynamic subscribe/unsubscribe handlers
     registerRoomHandlers(socket, cameraService);
 
+    // WebRTC signaling relay between browser and edge agent
+    socket.on("webrtc:offer", async (payload: { cameraId: string; sdp: string; correlationId: string }) => {
+      try {
+        const camera = await cameraService.getAccessibleCamera(payload.cameraId, {
+          id: socket.data.userId,
+          role: socket.data.role,
+        });
+        const ownerId = camera.created_by ?? "default";
+        const ownerRoom = `owner:${ownerId}:agents`;
+        agentNamespace.to(ownerRoom).to("agents").emit("webrtc:offer", {
+          cameraId: payload.cameraId,
+          sdp: payload.sdp,
+          correlationId: payload.correlationId,
+          clientSocketId: socket.id,
+        });
+      } catch (err) {
+        logger.error("Failed to relay webrtc:offer to agent", {
+          cameraId: payload?.cameraId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        socket.emit("error", { message: "Failed to reach edge agent for WebRTC stream" });
+      }
+    });
+
+    socket.on(
+      "webrtc:ice_candidate",
+      async (payload: { cameraId: string; candidate: unknown; correlationId: string }) => {
+        try {
+          const camera = await cameraService.getAccessibleCamera(payload.cameraId, {
+            id: socket.data.userId,
+            role: socket.data.role,
+          });
+          const ownerId = camera.created_by ?? "default";
+          const ownerRoom = `owner:${ownerId}:agents`;
+          agentNamespace.to(ownerRoom).to("agents").emit("webrtc:ice_candidate", {
+            cameraId: payload.cameraId,
+            candidate: payload.candidate,
+            correlationId: payload.correlationId,
+            clientSocketId: socket.id,
+          });
+        } catch (err) {
+          logger.error("Failed to relay webrtc:ice_candidate to agent", {
+            cameraId: payload?.cameraId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    );
+
     socket.on("disconnect", (reason) => {
       logger.info("Socket disconnected", { userId, socketId: socket.id, reason });
     });
@@ -98,6 +147,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
     const ownerRoom = `owner:${agent.owner_id}:agents`;
     await socket.join(agentRoom);
     await socket.join(ownerRoom);
+    await socket.join("agents");
 
     // Initial camera sync on connection
     try {
@@ -142,6 +192,38 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    });
+
+    // WebRTC answer relay from edge agent back to browser client
+    socket.on(
+      "webrtc:answer",
+      (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => {
+        io.to(payload.clientSocketId).emit("webrtc:answer", {
+          cameraId: payload.cameraId,
+          sdp: payload.sdp,
+          correlationId: payload.correlationId,
+        });
+      },
+    );
+
+    // WebRTC ICE candidate from agent back to browser client
+    socket.on(
+      "webrtc:ice_candidate",
+      (payload: { cameraId: string; candidate: unknown; correlationId: string; clientSocketId: string }) => {
+        io.to(payload.clientSocketId).emit("webrtc:ice_candidate", {
+          cameraId: payload.cameraId,
+          candidate: payload.candidate,
+          correlationId: payload.correlationId,
+        });
+      },
+    );
+
+    // Edge agent alert reception (store & forward ingestion)
+    socket.on("agent:alert", (payload: unknown) => {
+      logger.info("Received alert from edge agent", {
+        agentId: agent.id,
+        alertId: (payload as Record<string, unknown>)?.alert_id,
+      });
     });
 
     socket.on("disconnect", (reason) => {

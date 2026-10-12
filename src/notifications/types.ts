@@ -93,6 +93,8 @@ export type Notification =
 export interface ServerToClientEvents {
   notification: (payload: Notification) => void;
   "camera:subscribed": (cameraIds: string[]) => void;
+  "webrtc:answer": (payload: { cameraId: string; sdp: string; correlationId: string }) => void;
+  "webrtc:ice_candidate": (payload: { cameraId: string; candidate: unknown; correlationId: string }) => void;
   error: (payload: { message: string }) => void;
 }
 
@@ -100,6 +102,8 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   "subscribe:cameras": (cameraIds: string[]) => void;
   "unsubscribe:cameras": (cameraIds: string[]) => void;
+  "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string }) => void;
+  "webrtc:ice_candidate": (payload: { cameraId: string; candidate: unknown; correlationId: string }) => void;
 }
 
 /** Internal server-side socket data attached to each connection. */
@@ -117,12 +121,27 @@ export interface AgentServerToClientEvents {
   "cameras:sync": (payload: { cameras: unknown[] }) => void;
   "cameras:updated": (payload: { change_kind: string; camera_id: string; camera?: unknown }) => void;
   "agent:heartbeat:ack": (payload: { received_at: string }) => void;
+  "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
+  "webrtc:ice_candidate": (payload: {
+    cameraId: string;
+    candidate: unknown;
+    correlationId: string;
+    clientSocketId: string;
+  }) => void;
   error: (payload: { message: string }) => void;
 }
 
 export interface AgentClientToServerEvents {
   "agent:heartbeat": (payload?: { name?: string; version?: string }) => void;
   "cameras:request_sync": () => void;
+  "agent:alert": (payload: unknown) => void;
+  "webrtc:answer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
+  "webrtc:ice_candidate": (payload: {
+    cameraId: string;
+    candidate: unknown;
+    correlationId: string;
+    clientSocketId: string;
+  }) => void;
 }
 
 export interface AgentSocketData {

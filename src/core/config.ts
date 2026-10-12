@@ -47,7 +47,40 @@ export const config = {
     clientId: env.get("GOOGLE_CLIENT_ID").default("").asString(),
     clientSecret: resolveSecret("google_client_secret", "GOOGLE_CLIENT_SECRET"),
   },
+  webrtc: {
+    turnKeyId: resolveSecret("cloudflare_turn_key_id", "CLOUDFLARE_TURN_KEY_ID"),
+    turnApiToken: resolveSecret("cloudflare_turn_api_token", "CLOUDFLARE_TURN_API_TOKEN"),
+    turnUrl: env.get("CLOUDFLARE_TURN_URL").default("turn:turn.cloudflare.com:3478").asString(),
+    turnsUrl: env.get("CLOUDFLARE_TURNS_URL").default("turns:turn.cloudflare.com:5349").asString(),
+  },
 };
+
+export interface RtcIceServer {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
+export function getWebrtcIceServers(): RtcIceServer[] {
+  const { turnKeyId, turnApiToken, turnUrl, turnsUrl } = config.webrtc;
+  if (turnKeyId && turnApiToken) {
+    return [
+      {
+        urls: ["stun:turn.cloudflare.com:3478", "stun:stun.cloudflare.com:3478"],
+      },
+      {
+        urls: [`${turnUrl}?transport=udp`, `${turnUrl}?transport=tcp`, `${turnsUrl}?transport=tcp`],
+        username: turnKeyId,
+        credential: turnApiToken,
+      },
+    ];
+  }
+  return [
+    {
+      urls: ["stun:turn.cloudflare.com:3478", "stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"],
+    },
+  ];
+}
 
 export type Config = typeof config;
 

@@ -28,9 +28,24 @@ router.post("/:camera_id/start", requireRole(["admin", "operator"]), v(getCamera
 router.post("/:camera_id/stop", requireRole(["admin", "operator"]), v(getCameraSchema), CameraController.stopCamera);
 
 // Camera assignment operations (admin and operator only)
-router.post("/:camera_id/assign", requireRole(["admin", "operator"]), v(assignCameraSchema), CameraController.assignCamera);
-router.delete("/:camera_id/assign/:user_id", requireRole(["admin", "operator"]), v(removeCameraAssignmentSchema), CameraController.removeAssignment);
-router.get("/:camera_id/assignments", requireRole(["admin", "operator"]), v(getCameraSchema), CameraController.getCameraAssignments);
+router.post(
+  "/:camera_id/assign",
+  requireRole(["admin", "operator"]),
+  v(assignCameraSchema),
+  CameraController.assignCamera,
+);
+router.delete(
+  "/:camera_id/assign/:user_id",
+  requireRole(["admin", "operator"]),
+  v(removeCameraAssignmentSchema),
+  CameraController.removeAssignment,
+);
+router.get(
+  "/:camera_id/assignments",
+  requireRole(["admin", "operator"]),
+  v(getCameraSchema),
+  CameraController.getCameraAssignments,
+);
 
 // Zones and rules: everyone who sees the camera reads them; operators of the camera change them.
 const manage = requireRole(["admin", "operator"]);
@@ -46,5 +61,6 @@ router.delete("/:camera_id/rules/:rule_id", manage, v(ruleParamsSchema), CameraC
 // Live video: a JPEG frame, and a ticket for the MSE WebSocket that the upgrade handler relays.
 router.get("/:camera_id/live/frame.jpeg", v(getCameraSchema), LiveController.readFrame);
 router.post("/:camera_id/live/ticket", v(getCameraSchema), LiveController.issueTicket);
+router.get("/:camera_id/live/ice-servers", v(getCameraSchema), LiveController.getIceServers);
 
 export default router;

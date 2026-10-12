@@ -26,4 +26,11 @@ export class LiveController {
     res.setHeader("Cache-Control", "no-store");
     Readable.fromWeb(frame.body as import("node:stream/web").ReadableStream).pipe(res);
   });
+
+  static getIceServers = catchAsync(async (req: TypedRequest<typeof getCameraSchema>, res: Response) => {
+    const { camera_id } = req.params;
+    await container.resolve(CameraService).getAccessibleCamera(camera_id, req.user);
+    const { getWebrtcIceServers } = await import("@core/config.js");
+    res.json({ success: true, data: { iceServers: getWebrtcIceServers() } });
+  });
 }
