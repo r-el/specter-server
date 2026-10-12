@@ -12,6 +12,8 @@ import { Server as SocketIOServer, type Namespace, type Socket } from "socket.io
 import logger from "@core/utils/logger.js";
 import { container } from "@core/di.js";
 import { CameraService } from "@cameras/cameraService.js";
+import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
+import type { ICamera, CameraLiveStatus } from "~types/interfaces.js";
 import { UserService } from "@users/userService.js";
 import { heartbeatAgent } from "@agents/agentService.js";
 import { config } from "@core/config.js";
@@ -246,12 +248,98 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       },
     );
 
+    // Edge agent camera sync (Edge pushes local camera catalog to cloud)
+    socket.on("agent:cameras:sync", (payload: { cameras: unknown[] }) => {
+      try {
+        const agentCameraStore = container.resolve(AgentCameraStore);
+        const cameras = (payload?.cameras ?? []) as ICamera[];
+        agentCameraStore.setCameras(agent.owner_id, cameras);
+        logger.info("Synced cameras from edge agent", {
+          agentId: agent.id,
+          ownerId: agent.owner_id,
+          count: cameras.length,
+        });
+
+        // Broadcast configuration_changed to connected dashboard users so UI refreshes
+        dispatcher?.broadcast({
+          kind: "configuration_changed",
+          entityKind: "camera",
+          entityId: "",
+          changeKind: "updated",
+          level: "info",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        logger.error("Failed to process agent:cameras:sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // Edge agent camera live status updates
+    socket.on(
+      "agent:camera:status_changed",
+      (payload: {
+        cameraId: string;
+        cameraName?: string | null;
+        status: "starting" | "running" | "reconnecting" | "stopped" | "failed";
+        level?: "info" | "warning" | "critical";
+        timestamp?: string;
+      }) => {
+        try {
+          const agentCameraStore = container.resolve(AgentCameraStore);
+          agentCameraStore.updateCameraStatus(payload.cameraId, payload.status as CameraLiveStatus);
+
+          const statusNotification = {
+            kind: "camera_status" as const,
+            cameraId: payload.cameraId,
+            cameraName: payload.cameraName ?? null,
+            status: payload.status,
+            level: payload.level ?? "info",
+            timestamp: payload.timestamp ?? new Date().toISOString(),
+          };
+
+          dispatcher?.toCamera(payload.cameraId, statusNotification);
+          dispatcher?.broadcast(statusNotification);
+        } catch (err) {
+          logger.error("Failed to process agent:camera:status_changed", {
+            agentId: agent.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    );
+
     // Edge agent alert reception (store & forward ingestion)
     socket.on("agent:alert", (payload: unknown) => {
+      const raw = payload as Record<string, any>;
       logger.info("Received alert from edge agent", {
         agentId: agent.id,
-        alertId: (payload as Record<string, unknown>)?.alert_id,
+        alertId: raw?.alert_id,
       });
+
+      if (raw && raw.alert_id && dispatcher) {
+        const notif = {
+          kind: "alert" as const,
+          alertId: raw.alert_id,
+          alertKind: (raw.target_id ? "identity_match" : "rule") as "identity_match" | "rule",
+          cameraId: raw.camera_id,
+          cameraName: raw.camera_name ?? null,
+          targetId: raw.target_id ?? null,
+          targetLabel: raw.target_label ?? null,
+          watchlistName: raw.watchlist_name ?? null,
+          watchlistKind: raw.watchlist_kind ?? null,
+          similarity: raw.similarity ?? null,
+          ruleKind: raw.rule_kind ?? null,
+          objectClass: raw.object_class ?? "person",
+          level: (raw.severity ?? "warning") as "critical" | "warning" | "info",
+          snapshotUrl: raw.snapshot_url ?? null,
+          timestamp: raw.created_at ?? new Date().toISOString(),
+        };
+        dispatcher.toCamera(raw.camera_id, notif);
+        dispatcher.broadcast(notif);
+      }
     });
 
     socket.on("disconnect", (reason) => {

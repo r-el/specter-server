@@ -122,6 +122,8 @@ export interface AgentServerToClientEvents {
   "cameras:updated": (payload: { change_kind: string; camera_id: string; camera?: unknown }) => void;
   "watchlists:sync": (payload: { watchlists: unknown[] }) => void;
   "agent:heartbeat:ack": (payload: { received_at: string }) => void;
+  "agent:camera:start": (payload: { cameraId: string }) => void;
+  "agent:camera:stop": (payload: { cameraId: string }) => void;
   "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
   "webrtc:ice_candidate": (payload: {
     cameraId: string;
@@ -134,6 +136,14 @@ export interface AgentServerToClientEvents {
 
 export interface AgentClientToServerEvents {
   "agent:heartbeat": (payload?: { name?: string; version?: string }) => void;
+  "agent:cameras:sync": (payload: { cameras: unknown[] }) => void;
+  "agent:camera:status_changed": (payload: {
+    cameraId: string;
+    cameraName?: string | null;
+    status: "starting" | "running" | "reconnecting" | "stopped" | "failed";
+    level?: NotificationLevel;
+    timestamp?: string;
+  }) => void;
   "cameras:request_sync": () => void;
   "watchlists:request_sync": () => void;
   "agent:alert": (payload: unknown) => void;

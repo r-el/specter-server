@@ -11,7 +11,8 @@ import { SupabaseUserRepository } from "@users/infrastructure/supabaseUserReposi
 import { WatchlistService } from "@watchlists/watchlistService.js";
 import { AuthService } from "@auth/authService.js";
 import { CAMERA_ASSIGNMENT_REPOSITORY, CAMERA_REPOSITORY } from "@cameras/infrastructure/tokens.js";
-import { SpecterCameraRepository } from "@cameras/infrastructure/specterCameraRepository.js";
+import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
+import { HybridCameraRepository } from "@cameras/infrastructure/hybridCameraRepository.js";
 import { SupabaseCameraAssignmentRepository } from "@cameras/infrastructure/supabaseCameraAssignmentRepository.js";
 import { VECTOR_REPOSITORY } from "@vector/infrastructure/tokens.js";
 import { QdrantVectorRepository } from "@vector/infrastructure/qdrantVectorRepository.js";
@@ -22,6 +23,7 @@ import { SpecterCatalog } from "@specter/specterCatalog.js";
 import { SPECTER_CATALOG, SPECTER_CONFIG, SPECTER_EVENT_STREAM, SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
 
 // Register services in DI container
+container.registerSingleton(AgentCameraStore);
 container.registerSingleton(CameraService);
 container.registerSingleton(CameraSettingsService);
 container.registerSingleton(AlertService);
@@ -29,7 +31,7 @@ container.registerSingleton(UserService);
 container.registerSingleton(USER_REPOSITORY, SupabaseUserRepository);
 container.registerSingleton(WatchlistService);
 container.registerSingleton(AuthService);
-container.registerSingleton(CAMERA_REPOSITORY, SpecterCameraRepository);
+container.registerSingleton(CAMERA_REPOSITORY, HybridCameraRepository);
 container.registerSingleton(CAMERA_ASSIGNMENT_REPOSITORY, SupabaseCameraAssignmentRepository);
 container.registerSingleton(ALERT_REPOSITORY, SpecterAlertRepository);
 container.registerSingleton(VECTOR_REPOSITORY, QdrantVectorRepository);
