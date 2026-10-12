@@ -145,110 +145,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       socketId: socket.id,
     });
 
-    const agentRoom = `agent:${agent.id}`;
-    const ownerRoom = `owner:${agent.owner_id}:agents`;
-    await socket.join(agentRoom);
-    await socket.join(ownerRoom);
-    await socket.join("agents");
-
-    // Initial camera sync on connection
-    try {
-      const cameraService = container.resolve(CameraService);
-      const userService = container.resolve(UserService);
-      const owner = await userService.getUserById(agent.owner_id);
-      const user = owner ? { id: owner.id, role: owner.role } : { id: agent.owner_id, role: "operator" };
-      const cameras = await cameraService.listAccessibleCameras(user);
-      if (cameras.length > 0) {
-        socket.emit("cameras:sync", { cameras });
-      }
-    } catch (err) {
-      logger.error("Failed to emit initial cameras:sync to agent", {
-        agentId: agent.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    // Initial watchlist sync on connection
-    try {
-      const { WatchlistService } = await import("@watchlists/watchlistService.js");
-      const watchlistService = container.resolve(WatchlistService);
-      const watchlists = await watchlistService.listWatchlists();
-      socket.emit("watchlists:sync", { watchlists });
-    } catch (err) {
-      logger.error("Failed to emit initial watchlists:sync to agent", {
-        agentId: agent.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
-    // Dynamic camera sync request from agent
-    socket.on("cameras:request_sync", async () => {
-      try {
-        const cameraService = container.resolve(CameraService);
-        const userService = container.resolve(UserService);
-        const owner = await userService.getUserById(agent.owner_id);
-        const user = owner ? { id: owner.id, role: owner.role } : { id: agent.owner_id, role: "operator" };
-        const cameras = await cameraService.listAccessibleCameras(user);
-        socket.emit("cameras:sync", { cameras });
-      } catch (err) {
-        logger.error("Failed to process cameras:request_sync", {
-          agentId: agent.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    });
-
-    // Dynamic watchlist sync request from agent
-    socket.on("watchlists:request_sync", async () => {
-      try {
-        const { WatchlistService } = await import("@watchlists/watchlistService.js");
-        const watchlistService = container.resolve(WatchlistService);
-        const watchlists = await watchlistService.listWatchlists();
-        socket.emit("watchlists:sync", { watchlists });
-      } catch (err) {
-        logger.error("Failed to process watchlists:request_sync", {
-          agentId: agent.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    });
-
-    // Real-time heartbeat from agent
-    socket.on("agent:heartbeat", async (payload?: { name?: string; version?: string }) => {
-      try {
-        await heartbeatAgent(agent, payload ?? {});
-        socket.emit("agent:heartbeat:ack", { received_at: new Date().toISOString() });
-      } catch (err) {
-        logger.error("Failed to process agent heartbeat", {
-          agentId: agent.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    });
-
-    // WebRTC answer relay from edge agent back to browser client
-    socket.on(
-      "webrtc:answer",
-      (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => {
-        io.to(payload.clientSocketId).emit("webrtc:answer", {
-          cameraId: payload.cameraId,
-          sdp: payload.sdp,
-          correlationId: payload.correlationId,
-        });
-      },
-    );
-
-    // WebRTC ICE candidate from agent back to browser client
-    socket.on(
-      "webrtc:ice_candidate",
-      (payload: { cameraId: string; candidate: unknown; correlationId: string; clientSocketId: string }) => {
-        io.to(payload.clientSocketId).emit("webrtc:ice_candidate", {
-          cameraId: payload.cameraId,
-          candidate: payload.candidate,
-          correlationId: payload.correlationId,
-        });
-      },
-    );
+    // ── Register all event listeners SYNCHRONOUSLY to prevent dropping early events ──
 
     // Edge agent camera sync (Edge pushes local camera catalog to cloud)
     socket.on("agent:cameras:sync", (payload: { cameras: unknown[] }) => {
@@ -344,9 +241,100 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       }
     });
 
+    // Real-time heartbeat from agent
+    socket.on("agent:heartbeat", async (payload?: { name?: string; version?: string }) => {
+      try {
+        await heartbeatAgent(agent, payload ?? {});
+        socket.emit("agent:heartbeat:ack", { received_at: new Date().toISOString() });
+      } catch (err) {
+        logger.error("Failed to process agent heartbeat", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // WebRTC answer relay from edge agent back to browser client
+    socket.on(
+      "webrtc:answer",
+      (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => {
+        io.to(payload.clientSocketId).emit("webrtc:answer", {
+          cameraId: payload.cameraId,
+          sdp: payload.sdp,
+          correlationId: payload.correlationId,
+        });
+      },
+    );
+
+    // WebRTC ICE candidate from agent back to browser client
+    socket.on(
+      "webrtc:ice_candidate",
+      (payload: { cameraId: string; candidate: unknown; correlationId: string; clientSocketId: string }) => {
+        io.to(payload.clientSocketId).emit("webrtc:ice_candidate", {
+          cameraId: payload.cameraId,
+          candidate: payload.candidate,
+          correlationId: payload.correlationId,
+        });
+      },
+    );
+
+    // Dynamic camera sync request from agent
+    socket.on("cameras:request_sync", async () => {
+      try {
+        const cameraService = container.resolve(CameraService);
+        const userService = container.resolve(UserService);
+        const owner = await userService.getUserById(agent.owner_id);
+        const user = owner ? { id: owner.id, role: owner.role } : { id: agent.owner_id, role: "operator" };
+        const cameras = await cameraService.listAccessibleCameras(user);
+        if (cameras.length > 0) {
+          socket.emit("cameras:sync", { cameras });
+        }
+      } catch (err) {
+        logger.error("Failed to process cameras:request_sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // Dynamic watchlist sync request from agent
+    socket.on("watchlists:request_sync", async () => {
+      try {
+        const { WatchlistService } = await import("@watchlists/watchlistService.js");
+        const watchlistService = container.resolve(WatchlistService);
+        const watchlists = await watchlistService.listWatchlists();
+        socket.emit("watchlists:sync", { watchlists });
+      } catch (err) {
+        logger.error("Failed to process watchlists:request_sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
     socket.on("disconnect", (reason) => {
       logger.info("Agent socket disconnected", { agentId: agent.id, socketId: socket.id, reason });
     });
+
+    // ── Async joins and initial queries ──
+    const agentRoom = `agent:${agent.id}`;
+    const ownerRoom = `owner:${agent.owner_id}:agents`;
+    await socket.join(agentRoom);
+    await socket.join(ownerRoom);
+    await socket.join("agents");
+
+    // Initial watchlist sync on connection
+    try {
+      const { WatchlistService } = await import("@watchlists/watchlistService.js");
+      const watchlistService = container.resolve(WatchlistService);
+      const watchlists = await watchlistService.listWatchlists();
+      socket.emit("watchlists:sync", { watchlists });
+    } catch (err) {
+      logger.error("Failed to emit initial watchlists:sync to agent", {
+        agentId: agent.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
 
   dispatcher = new NotificationDispatcher(io);
