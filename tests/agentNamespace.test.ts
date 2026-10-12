@@ -27,6 +27,14 @@ vi.mock("@users/userService.js", () => ({
   },
 }));
 
+vi.mock("@watchlists/watchlistService.js", () => ({
+  WatchlistService: class {
+    listWatchlists = vi.fn();
+    listTargets = vi.fn();
+    readImage = vi.fn();
+  },
+}));
+
 describe("Agent Socket & API Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -101,6 +109,45 @@ describe("Agent Socket & API Integration", () => {
         success: true,
         data: {
           cameras: mockCameras,
+        },
+      });
+    });
+
+    it("lists watchlists for edge agent sync", async () => {
+      const { WatchlistService } = await import("@watchlists/watchlistService.js");
+      const req = { agent: { id: "agent-1", owner_id: "user-1" } } as any;
+      const res = { json: vi.fn() } as any;
+
+      const mockWatchlists = [{ id: "wl-1", name: "VIP" }];
+      vi.mocked(container.resolve(WatchlistService).listWatchlists as any).mockResolvedValue(mockWatchlists);
+
+      await AgentController.listWatchlists(req, res, vi.fn());
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          watchlists: mockWatchlists,
+        },
+      });
+    });
+
+    it("lists targets of a watchlist for edge agent sync", async () => {
+      const { WatchlistService } = await import("@watchlists/watchlistService.js");
+      const req = {
+        agent: { id: "agent-1", owner_id: "user-1" },
+        params: { id: "wl-1" },
+      } as any;
+      const res = { json: vi.fn() } as any;
+
+      const mockTargets = [{ id: "t-1", label: "John Doe", watchlist_id: "wl-1" }];
+      vi.mocked(container.resolve(WatchlistService).listTargets as any).mockResolvedValue(mockTargets);
+
+      await AgentController.listTargets(req, res, vi.fn());
+
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        data: {
+          targets: mockTargets,
         },
       });
     });

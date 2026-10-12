@@ -65,4 +65,42 @@ export const AgentController = {
       },
     });
   }),
+
+  listWatchlists: catchAsync<AgentRequest>(async (_req, res) => {
+    const { WatchlistService } = await import("@watchlists/watchlistService.js");
+    const watchlistService = container.resolve(WatchlistService);
+    const watchlists = await watchlistService.listWatchlists();
+    res.json({
+      success: true,
+      data: {
+        watchlists,
+      },
+    });
+  }),
+
+  listTargets: catchAsync<AgentRequest>(async (req, res) => {
+    const id = String(req.params.id);
+    const { WatchlistService } = await import("@watchlists/watchlistService.js");
+    const watchlistService = container.resolve(WatchlistService);
+    const targets = await watchlistService.listTargets(id);
+    res.json({
+      success: true,
+      data: {
+        targets,
+      },
+    });
+  }),
+
+  readTargetImage: catchAsync<AgentRequest>(async (req, res) => {
+    const id = String(req.params.id);
+    const targetId = String(req.params.target_id);
+    const imageId = String(req.params.image_id);
+    const { Readable } = await import("node:stream");
+    const { WatchlistService } = await import("@watchlists/watchlistService.js");
+    const watchlistService = container.resolve(WatchlistService);
+    const image = await watchlistService.readImage(id, targetId, imageId);
+    res.setHeader("Content-Type", image.contentType);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    Readable.fromWeb(image.body as import("node:stream/web").ReadableStream).pipe(res);
+  }),
 };

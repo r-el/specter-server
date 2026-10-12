@@ -23,5 +23,12 @@ agentHeartbeatRoutes.post(
   AgentController.heartbeat,
 );
 agentHeartbeatRoutes.get("/cameras", AgentController.authenticate, AgentController.listCameras);
+agentHeartbeatRoutes.get("/watchlists", AgentController.authenticate, AgentController.listWatchlists);
+agentHeartbeatRoutes.get("/watchlists/:id/targets", AgentController.authenticate, AgentController.listTargets);
+agentHeartbeatRoutes.get(
+  "/watchlists/:id/targets/:target_id/images/:image_id",
+  AgentController.authenticate,
+  AgentController.readTargetImage,
+);
 
 export default router;

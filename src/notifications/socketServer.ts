@@ -164,6 +164,19 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       });
     }
 
+    // Initial watchlist sync on connection
+    try {
+      const { WatchlistService } = await import("@watchlists/watchlistService.js");
+      const watchlistService = container.resolve(WatchlistService);
+      const watchlists = await watchlistService.listWatchlists();
+      socket.emit("watchlists:sync", { watchlists });
+    } catch (err) {
+      logger.error("Failed to emit initial watchlists:sync to agent", {
+        agentId: agent.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     // Dynamic camera sync request from agent
     socket.on("cameras:request_sync", async () => {
       try {
@@ -175,6 +188,21 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
         socket.emit("cameras:sync", { cameras });
       } catch (err) {
         logger.error("Failed to process cameras:request_sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // Dynamic watchlist sync request from agent
+    socket.on("watchlists:request_sync", async () => {
+      try {
+        const { WatchlistService } = await import("@watchlists/watchlistService.js");
+        const watchlistService = container.resolve(WatchlistService);
+        const watchlists = await watchlistService.listWatchlists();
+        socket.emit("watchlists:sync", { watchlists });
+      } catch (err) {
+        logger.error("Failed to process watchlists:request_sync", {
           agentId: agent.id,
           error: err instanceof Error ? err.message : String(err),
         });
