@@ -87,13 +87,24 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
           id: socket.data.userId,
           role: socket.data.role,
         });
-        const ownerId = camera.created_by ?? "default";
-        const ownerRoom = `owner:${ownerId}:agents`;
-        agentNamespace.to(ownerRoom).emit("webrtc:offer", {
+        const agentCameraStore = container.resolve(AgentCameraStore);
+        const targetAgentId = agentCameraStore.getAgentIdForCamera(payload.cameraId);
+        const ownerId =
+          camera.created_by || (targetAgentId ? agentCameraStore.getOwnerForAgent(targetAgentId) : null) || "default";
+        const target = targetAgentId
+          ? agentNamespace.to(`agent:${targetAgentId}`)
+          : agentNamespace.to(`owner:${ownerId}:agents`);
+
+        target.emit("webrtc:offer", {
           cameraId: payload.cameraId,
           sdp: payload.sdp,
           correlationId: payload.correlationId,
           clientSocketId: socket.id,
+        });
+        logger.info("Relayed webrtc:offer to agent", {
+          cameraId: payload.cameraId,
+          targetAgentId,
+          ownerId,
         });
       } catch (err) {
         logger.error("Failed to relay webrtc:offer to agent", {
@@ -112,9 +123,15 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
             id: socket.data.userId,
             role: socket.data.role,
           });
-          const ownerId = camera.created_by ?? "default";
-          const ownerRoom = `owner:${ownerId}:agents`;
-          agentNamespace.to(ownerRoom).emit("webrtc:ice_candidate", {
+          const agentCameraStore = container.resolve(AgentCameraStore);
+          const targetAgentId = agentCameraStore.getAgentIdForCamera(payload.cameraId);
+          const ownerId =
+            camera.created_by || (targetAgentId ? agentCameraStore.getOwnerForAgent(targetAgentId) : null) || "default";
+          const target = targetAgentId
+            ? agentNamespace.to(`agent:${targetAgentId}`)
+            : agentNamespace.to(`owner:${ownerId}:agents`);
+
+          target.emit("webrtc:ice_candidate", {
             cameraId: payload.cameraId,
             candidate: payload.candidate,
             correlationId: payload.correlationId,

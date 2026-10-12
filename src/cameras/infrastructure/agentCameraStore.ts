@@ -35,6 +35,9 @@ export class AgentCameraStore {
 
     const agentMap = new Map<string, ICamera>();
     for (const camera of cameras) {
+      if (!camera.created_by) {
+        camera.created_by = ownerId;
+      }
       agentMap.set(camera.id, camera);
     }
     this.camerasByAgent.set(agentId, agentMap);
@@ -44,6 +47,19 @@ export class AgentCameraStore {
       ownerId,
       cameraCount: cameras.length,
     });
+  }
+
+  /** Finds which agent owns a given camera ID. */
+  getAgentIdForCamera(cameraId: string): string | null {
+    for (const [agentId, agentMap] of this.camerasByAgent) {
+      if (agentMap.has(cameraId)) return agentId;
+    }
+    return null;
+  }
+
+  /** Returns the owner ID associated with an agent. */
+  getOwnerForAgent(agentId: string): string | null {
+    return this.agentToOwner.get(agentId) ?? null;
   }
 
   /** Returns all cameras across all owners, or for a specific owner (aggregated across all that owner's agents). */
