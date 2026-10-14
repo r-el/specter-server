@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { config } from "@core/config.js";
+import { msToSeconds } from "@core/utils/time.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import { validate } from "@core/validationService.js";
 import { createUserSchema, loginUserSchema } from "@users/userSchemas.js";
@@ -12,7 +13,7 @@ import User from "@users/userModel.js";
 import logger from "@core/utils/logger.js";
 import { EmailService } from "../services/email/emailService.js";
 import { dispatchEmailJob } from "../services/email/emailQueue.js";
-import { cache } from "../services/cache/index.js";
+import { OtpService } from "./otpService.js";
 
 // Strategies
 import type { IAuthStrategy, AuthResult } from "./strategies/IAuthStrategy.js";
@@ -22,18 +23,13 @@ import { GoogleStrategy } from "./strategies/googleStrategy.js";
 const DEFAULT_TOKEN_EXPIRATION = config.auth.jwtExpiresIn;
 const JWT_SECRET = config.auth.jwtSecret;
 
-interface PendingVerification {
-  code: string;
-  user: User;
-  token: string;
-}
-
 @injectable()
 export class AuthService {
   private strategies: Map<string, IAuthStrategy> = new Map();
 
   constructor(
     @inject(delay(() => UserService)) private userService: UserService,
+    @inject(delay(() => OtpService)) private otpService: OtpService,
     @inject(delay(() => LocalStrategy)) private localStrategy?: LocalStrategy,
     @inject(delay(() => GoogleStrategy)) private googleStrategy?: GoogleStrategy,
     private emailService?: EmailService,
@@ -131,23 +127,9 @@ export class AuthService {
       role: user.role || "viewer",
     });
 
-    // Generate real 6-digit verification code
-    const code = crypto.randomInt(100000, 1000000).toString();
-    const pendingVerification: PendingVerification = {
-      code,
-      user,
-      token,
-    };
-
-    // Convert ms to seconds for TTL
-    const ttlSeconds = Math.floor(config.auth.verificationCodeExpiresInMs / 1000);
-    await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pendingVerification), ttlSeconds);
-
-    // Send the verification code before confirming registration.
     try {
-      await dispatchEmailJob({ type: "verification", toEmail: user.email!, name: user.name!, code });
+      await this.otpService.createAndSendOtp(user, token);
     } catch (error) {
-      await cache.delete(`verification:${email.toLowerCase()}`);
       await this.userService.deleteUser(user.id);
       throw new ApiError(503, "Verification email could not be queued. Please try again later.");
     }
@@ -159,19 +141,7 @@ export class AuthService {
    * Verify the 6-digit email code
    */
   async verifyCode(email: string, code: string) {
-    const pendingStr = await cache.get(`verification:${email.toLowerCase()}`);
-    if (!pendingStr) {
-      throw new ApiError(400, "No pending verification found or code has expired. Please request a new code.");
-    }
-
-    const pending = JSON.parse(pendingStr) as PendingVerification;
-
-    if (pending.code !== code.trim()) {
-      throw new ApiError(400, "Invalid verification code. Please check your email and try again.");
-    }
-
-    // Code verified successfully!
-    await cache.delete(`verification:${email.toLowerCase()}`);
+    const pending = await this.otpService.validateOtp(email, code);
 
     // Send welcome confirmation email in background
     dispatchEmailJob({ type: "welcome", toEmail: email, name: pending.user.name || "Operator" }).catch(() => {});
@@ -186,19 +156,7 @@ export class AuthService {
    * Resend a fresh 6-digit verification code
    */
   async resendVerificationCode(email: string) {
-    const pendingStr = await cache.get(`verification:${email.toLowerCase()}`);
-    if (!pendingStr) {
-      throw new ApiError(404, "No registration session found or code has expired for this email");
-    }
-    const pending = JSON.parse(pendingStr) as PendingVerification;
-
-    const code = crypto.randomInt(100000, 1000000).toString();
-    pending.code = code;
-
-    const ttlSeconds = Math.floor(config.auth.verificationCodeExpiresInMs / 1000);
-    await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pending), ttlSeconds);
-
-    await dispatchEmailJob({ type: "verification", toEmail: email, name: pending.user.name || "Operator", code });
+    await this.otpService.resendOtp(email);
     return { success: true, message: "New verification code sent to your email" };
   }
 

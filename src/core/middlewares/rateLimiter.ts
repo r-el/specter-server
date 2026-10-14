@@ -2,6 +2,7 @@ import rateLimit from "express-rate-limit";
 import { default as RedisStore } from "rate-limit-redis";
 import { Redis } from "ioredis";
 import { config } from "@core/config.js";
+import { msToMinutes } from "@core/utils/time.js";
 
 // Setup Redis Client for rate limiting if configured
 const redisClient =
@@ -27,7 +28,7 @@ export const globalLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   message: {
     success: false,
-    error: `Too many requests from this IP, please try again after ${config.server.rateLimitWindowMs / (60 * 1000)} minutes`,
+    error: `Too many requests from this IP, please try again after ${msToMinutes(config.server.rateLimitWindowMs)} minutes`,
   },
 });
 

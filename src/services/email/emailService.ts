@@ -9,6 +9,7 @@
 import { injectable } from "tsyringe";
 import sgMail from "@sendgrid/mail";
 import { config } from "@core/config.js";
+import { msToMinutes } from "@core/utils/time.js";
 import logger from "@core/utils/logger.js";
 
 // Initialize SendGrid if API key is provided
@@ -72,7 +73,7 @@ export class EmailService {
             ${code}
           </div>
         </div>
-        <p style="font-size: 13px; color: #94a3b8; text-align: center;">This code will expire in ${config.auth.verificationCodeExpiresInMs / (60 * 1000)} minutes.</p>
+        <p style="font-size: 13px; color: #94a3b8; text-align: center;">This code will expire in ${msToMinutes(config.auth.verificationCodeExpiresInMs)} minutes.</p>
         <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
         <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">If you did not request this verification, please disregard this message.</p>
       </div>

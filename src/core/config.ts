@@ -46,6 +46,7 @@ export const config = {
   cache: {
     driver: env.get("CACHE_DRIVER").default("supabase").asEnum(["supabase", "redis"]),
     redisUrl: env.get("REDIS_URL").default("").asString(),
+    redisPort: env.get("REDIS_PORT").default(6379).asIntPositive(),
   },
   email: {
     sendgridApiKey: resolveSecret("sendgrid_api_key", "SENDGRID_API_KEY"),
