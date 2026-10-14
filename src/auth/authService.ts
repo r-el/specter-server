@@ -1,6 +1,6 @@
 import { injectable, inject, delay, container } from "tsyringe";
 import crypto from "crypto";
-import bcrypt from "bcrypt";
+import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import dayjs from "dayjs";
 import { config } from "@core/config.js";
@@ -17,7 +17,6 @@ import type { IAuthStrategy, AuthResult } from "./strategies/IAuthStrategy.js";
 import { LocalStrategy } from "./strategies/localStrategy.js";
 import { GoogleStrategy } from "./strategies/googleStrategy.js";
 
-const BCRYPT_SALT_ROUNDS = config.auth.bcryptSaltRounds;
 const DEFAULT_TOKEN_EXPIRATION = config.auth.jwtExpiresIn;
 const JWT_SECRET = config.auth.jwtSecret;
 
@@ -215,7 +214,7 @@ export class AuthService {
     if (typeof password !== "string") throw new Error("Password must be type of string");
 
     try {
-      return await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+      return await argon2.hash(password);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error("Failed to hash password: " + message);
@@ -228,7 +227,7 @@ export class AuthService {
   async verifyPassword(password: string, hash: string): Promise<boolean> {
     if (!password || !hash) return false;
     try {
-      return await bcrypt.compare(password, hash);
+      return await argon2.verify(hash, password);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Password verification error: " + message);

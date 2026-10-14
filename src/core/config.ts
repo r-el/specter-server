@@ -16,7 +16,6 @@ export const config = {
     rateLimitMax: env.get("RATE_LIMIT_MAX").default(1000).asIntPositive(),
   },
   auth: {
-    bcryptSaltRounds: env.get("BCRYPT_SALT_ROUNDS").default(10).asIntPositive(),
     jwtSecret: resolveSecret("jwt_secret", "JWT_SECRET"),
     jwtExpiresIn: env.get("JWT_EXPIRES_IN").default("7d").asString(),
     verificationCodeExpiresInMs: env

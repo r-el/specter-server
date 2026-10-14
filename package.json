@@ -28,7 +28,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
-    "bcrypt": "^6.0.0",
+    "argon2": "^0.45.1",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dayjs": "^1.11.23",
@@ -54,7 +54,6 @@
   "author": "r-el",
   "license": "ISC",
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
