@@ -140,10 +140,6 @@ export class AuthService {
       token,
     });
 
-    console.log(`\n==================================================`);
-    console.log(`🔑 [VERIFICATION CODE] Generated for ${email}: ${code}`);
-    console.log(`==================================================\n`);
-
     // Send the verification code before confirming registration.
     const emailSent = await this.emailService.sendVerificationCodeEmail(user.email!, user.name!, code);
     if (!emailSent) {
@@ -197,10 +193,6 @@ export class AuthService {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     pending.code = code;
     pending.expiresAt = Date.now() + 15 * 60 * 1000;
-
-    console.log(`\n==================================================`);
-    console.log(`🔑 [RESENT VERIFICATION CODE] for ${email}: ${code}`);
-    console.log(`==================================================\n`);
 
     await this.emailService.sendVerificationCodeEmail(email, pending.user.name || "Operator", code);
     return { success: true, message: "New verification code sent to your email" };
