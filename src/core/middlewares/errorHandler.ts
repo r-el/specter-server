@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
+import * as Sentry from "@sentry/node";
 import logger from "@core/utils/logger.js";
 import { config } from "@core/config.js";
 import { ApiError } from "@core/utils/errors.js";
@@ -42,6 +43,11 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       ip: req.ip,
       ...(err.metadata && { metadata: err.metadata }),
     });
+
+    // Capture unhandled server errors in Sentry
+    if (config.server.sentryDsn) {
+      Sentry.captureException(err);
+    }
   }
 
   // In production, mask internal server error details to prevent data leakage

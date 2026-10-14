@@ -14,6 +14,7 @@ export const config = {
       .default(15 * 60 * 1000)
       .asIntPositive(),
     rateLimitMax: env.get("RATE_LIMIT_MAX").default(1000).asIntPositive(),
+    sentryDsn: env.get("SENTRY_DSN").asString(),
   },
   auth: {
     jwtSecret: resolveSecret("jwt_secret", "JWT_SECRET"),

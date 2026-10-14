@@ -2,7 +2,6 @@ import { injectable, inject, delay, container } from "tsyringe";
 import crypto from "crypto";
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
-import dayjs from "dayjs";
 import { config } from "@core/config.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import { validate } from "@core/validationService.js";
@@ -11,6 +10,7 @@ import { UserService } from "@users/userService.js";
 import User from "@users/userModel.js";
 import logger from "@core/utils/logger.js";
 import { EmailService } from "../services/email/emailService.js";
+import { dispatchEmailJob } from "../services/email/emailQueue.js";
 import { cache } from "../services/cache/index.js";
 
 // Strategies
@@ -70,9 +70,9 @@ export class AuthService {
     const authResult = await strategy.authenticate(credentials);
 
     // Send welcome email if this is a newly created user (e.g. first time Google login)
-    if (authResult.isNewUser && this.emailService) {
-      this.emailService.sendWelcomeEmail(authResult.email, authResult.name).catch((err) => {
-        logger.error("Failed to send welcome email in background", { error: err });
+    if (authResult.isNewUser) {
+      dispatchEmailJob({ type: "welcome", toEmail: authResult.email, name: authResult.name }).catch((err) => {
+        logger.error("Failed to dispatch welcome email", { error: err });
       });
     }
 
@@ -143,11 +143,12 @@ export class AuthService {
     await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pendingVerification), ttlSeconds);
 
     // Send the verification code before confirming registration.
-    const emailSent = await this.emailService.sendVerificationCodeEmail(user.email!, user.name!, code);
-    if (!emailSent) {
+    try {
+      await dispatchEmailJob({ type: "verification", toEmail: user.email!, name: user.name!, code });
+    } catch (error) {
       await cache.delete(`verification:${email.toLowerCase()}`);
       await this.userService.deleteUser(user.id);
-      throw new ApiError(503, "Verification email could not be sent. Please try again later.");
+      throw new ApiError(503, "Verification email could not be queued. Please try again later.");
     }
 
     return { user, token, verificationRequired: true };
@@ -172,7 +173,7 @@ export class AuthService {
     await cache.delete(`verification:${email.toLowerCase()}`);
 
     // Send welcome confirmation email in background
-    this.emailService.sendWelcomeEmail(email, pending.user.name || "Operator").catch(() => {});
+    dispatchEmailJob({ type: "welcome", toEmail: email, name: pending.user.name || "Operator" }).catch(() => {});
 
     return {
       user: pending.user,
@@ -196,7 +197,7 @@ export class AuthService {
     const ttlSeconds = Math.floor(config.auth.verificationCodeExpiresInMs / 1000);
     await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pending), ttlSeconds);
 
-    await this.emailService.sendVerificationCodeEmail(email, pending.user.name || "Operator", code);
+    await dispatchEmailJob({ type: "verification", toEmail: email, name: pending.user.name || "Operator", code });
     return { success: true, message: "New verification code sent to your email" };
   }
 
