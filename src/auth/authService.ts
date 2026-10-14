@@ -1,6 +1,7 @@
 import { injectable, inject, delay, container } from "tsyringe";
 import crypto from "crypto";
 import argon2 from "argon2";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { config } from "@core/config.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
@@ -229,6 +230,9 @@ export class AuthService {
   async verifyPassword(password: string, hash: string): Promise<boolean> {
     if (!password || !hash) return false;
     try {
+      if (hash.startsWith("$2a$") || hash.startsWith("$2b$")) {
+        return await bcrypt.compare(password, hash);
+      }
       return await argon2.verify(hash, password);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

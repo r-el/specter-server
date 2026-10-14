@@ -23,6 +23,7 @@ import { socketAuthMiddleware } from "./socketAuth.js";
 import { agentSocketAuthMiddleware } from "./agentSocketAuth.js";
 import { joinAuthorizedCameras, registerRoomHandlers } from "./cameraRoomManager.js";
 import { NotificationDispatcher } from "./notificationDispatcher.js";
+import { setupRedisAdapter } from "./redisAdapter.js";
 import type { Server as HttpServer } from "http";
 import type {
   ServerToClientEvents,
@@ -63,6 +64,8 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
     pingInterval: 25_000,
     pingTimeout: 20_000,
   });
+
+  setupRedisAdapter(io);
 
   // ── Authentication ───────────────────────────────────────────────
   io.use(socketAuthMiddleware);

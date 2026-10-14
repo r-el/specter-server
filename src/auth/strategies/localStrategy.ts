@@ -7,6 +7,7 @@
 
 import { injectable, inject, delay } from "tsyringe";
 import argon2 from "argon2";
+import bcrypt from "bcrypt";
 import { UserService } from "@users/userService.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import { validate } from "@core/validationService.js";
@@ -33,7 +34,14 @@ export class LocalStrategy implements IAuthStrategy {
       throw new ApiError(401, "Invalid username or password");
     }
 
-    const isMatch = await argon2.verify(user.password as string, password);
+    const hash = user.password as string;
+    let isMatch = false;
+    if (hash.startsWith("$2a$") || hash.startsWith("$2b$")) {
+      isMatch = await bcrypt.compare(password, hash);
+    } else {
+      isMatch = await argon2.verify(hash, password);
+    }
+
     if (!isMatch) {
       throw new ApiError(401, "Invalid username or password");
     }
