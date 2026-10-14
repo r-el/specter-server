@@ -42,6 +42,10 @@ export const config = {
       url: env.get("QDRANT_URL").default("http://127.0.0.1:6333").asString().replace(/\/$/, ""),
     },
   },
+  cache: {
+    driver: env.get("CACHE_DRIVER").default("supabase").asEnum(["supabase", "redis"]),
+    redisUrl: env.get("REDIS_URL").default("").asString(),
+  },
   email: {
     sendgridApiKey: resolveSecret("sendgrid_api_key", "SENDGRID_API_KEY"),
     senderEmail: env.get("EMAIL_SENDER").default("no-reply@specter.com").asString(),

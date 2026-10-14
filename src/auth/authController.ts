@@ -4,13 +4,7 @@ import { IUser } from "~types/interfaces.js";
 import { container } from "@core/di.js";
 import { catchAsync } from "@core/middlewares/errorHandler.js";
 import { AuthService } from "./authService.js";
-import {
-  registerSchema,
-  loginSchema,
-  googleLoginSchema,
-  verifyCodeSchema,
-  resendCodeSchema,
-} from "./authSchemas.js";
+import { registerSchema, loginSchema, googleLoginSchema, verifyCodeSchema, resendCodeSchema } from "./authSchemas.js";
 
 const authService = () => container.resolve(AuthService);
 
@@ -70,7 +64,7 @@ export const googleLogin = catchAsync(async (req: TypedRequest<typeof googleLogi
  * @route POST /auth/verify-code
  */
 export const verifyEmailCode = catchAsync(async (req: TypedRequest<typeof verifyCodeSchema>, res: Response) => {
-  const result = authService().verifyCode(req.body.email, req.body.code);
+  const result = await authService().verifyCode(req.body.email, req.body.code);
   res.json({
     success: true,
     message: "Email verified successfully",

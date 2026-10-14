@@ -11,6 +11,7 @@ import { UserService } from "@users/userService.js";
 import User from "@users/userModel.js";
 import logger from "@core/utils/logger.js";
 import { EmailService } from "../services/email/emailService.js";
+import { cache } from "../services/cache/index.js";
 
 // Strategies
 import type { IAuthStrategy, AuthResult } from "./strategies/IAuthStrategy.js";
@@ -22,12 +23,9 @@ const JWT_SECRET = config.auth.jwtSecret;
 
 interface PendingVerification {
   code: string;
-  expiresAt: number;
   user: User;
   token: string;
 }
-
-const verificationStore = new Map<string, PendingVerification>();
 
 @injectable()
 export class AuthService {
@@ -134,17 +132,20 @@ export class AuthService {
 
     // Generate real 6-digit verification code
     const code = crypto.randomInt(100000, 1000000).toString();
-    verificationStore.set(email.toLowerCase(), {
+    const pendingVerification: PendingVerification = {
       code,
-      expiresAt: dayjs().add(config.auth.verificationCodeExpiresInMs, "ms").valueOf(),
       user,
       token,
-    });
+    };
+
+    // Convert ms to seconds for TTL
+    const ttlSeconds = Math.floor(config.auth.verificationCodeExpiresInMs / 1000);
+    await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pendingVerification), ttlSeconds);
 
     // Send the verification code before confirming registration.
     const emailSent = await this.emailService.sendVerificationCodeEmail(user.email!, user.name!, code);
     if (!emailSent) {
-      verificationStore.delete(email.toLowerCase());
+      await cache.delete(`verification:${email.toLowerCase()}`);
       await this.userService.deleteUser(user.id);
       throw new ApiError(503, "Verification email could not be sent. Please try again later.");
     }
@@ -155,23 +156,20 @@ export class AuthService {
   /**
    * Verify the 6-digit email code
    */
-  verifyCode(email: string, code: string) {
-    const pending = verificationStore.get(email.toLowerCase());
-    if (!pending) {
-      throw new ApiError(400, "No pending verification found for this email. Please request a new code.");
+  async verifyCode(email: string, code: string) {
+    const pendingStr = await cache.get(`verification:${email.toLowerCase()}`);
+    if (!pendingStr) {
+      throw new ApiError(400, "No pending verification found or code has expired. Please request a new code.");
     }
 
-    if (Date.now() > pending.expiresAt) {
-      verificationStore.delete(email.toLowerCase());
-      throw new ApiError(400, "Verification code has expired. Please request a new code.");
-    }
+    const pending = JSON.parse(pendingStr) as PendingVerification;
 
     if (pending.code !== code.trim()) {
       throw new ApiError(400, "Invalid verification code. Please check your email and try again.");
     }
 
     // Code verified successfully!
-    verificationStore.delete(email.toLowerCase());
+    await cache.delete(`verification:${email.toLowerCase()}`);
 
     // Send welcome confirmation email in background
     this.emailService.sendWelcomeEmail(email, pending.user.name || "Operator").catch(() => {});
@@ -186,14 +184,17 @@ export class AuthService {
    * Resend a fresh 6-digit verification code
    */
   async resendVerificationCode(email: string) {
-    const pending = verificationStore.get(email.toLowerCase());
-    if (!pending) {
-      throw new ApiError(404, "No registration session found for this email");
+    const pendingStr = await cache.get(`verification:${email.toLowerCase()}`);
+    if (!pendingStr) {
+      throw new ApiError(404, "No registration session found or code has expired for this email");
     }
+    const pending = JSON.parse(pendingStr) as PendingVerification;
 
     const code = crypto.randomInt(100000, 1000000).toString();
     pending.code = code;
-    pending.expiresAt = dayjs().add(config.auth.verificationCodeExpiresInMs, "ms").valueOf();
+
+    const ttlSeconds = Math.floor(config.auth.verificationCodeExpiresInMs / 1000);
+    await cache.set(`verification:${email.toLowerCase()}`, JSON.stringify(pending), ttlSeconds);
 
     await this.emailService.sendVerificationCodeEmail(email, pending.user.name || "Operator", code);
     return { success: true, message: "New verification code sent to your email" };
