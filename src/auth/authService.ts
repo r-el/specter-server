@@ -1,6 +1,8 @@
 import { injectable, inject, delay, container } from "tsyringe";
+import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import dayjs from "dayjs";
 import { config } from "@core/config.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import { validate } from "@core/validationService.js";
@@ -132,10 +134,10 @@ export class AuthService {
     });
 
     // Generate real 6-digit verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
     verificationStore.set(email.toLowerCase(), {
       code,
-      expiresAt: Date.now() + config.auth.verificationCodeExpiresInMs,
+      expiresAt: dayjs().add(config.auth.verificationCodeExpiresInMs, "ms").valueOf(),
       user,
       token,
     });
@@ -190,9 +192,9 @@ export class AuthService {
       throw new ApiError(404, "No registration session found for this email");
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = crypto.randomInt(100000, 1000000).toString();
     pending.code = code;
-    pending.expiresAt = Date.now() + config.auth.verificationCodeExpiresInMs;
+    pending.expiresAt = dayjs().add(config.auth.verificationCodeExpiresInMs, "ms").valueOf();
 
     await this.emailService.sendVerificationCodeEmail(email, pending.user.name || "Operator", code);
     return { success: true, message: "New verification code sent to your email" };
