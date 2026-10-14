@@ -135,7 +135,7 @@ export class AuthService {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     verificationStore.set(email.toLowerCase(), {
       code,
-      expiresAt: Date.now() + 15 * 60 * 1000,
+      expiresAt: Date.now() + config.auth.verificationCodeExpiresInMs,
       user,
       token,
     });
@@ -192,7 +192,7 @@ export class AuthService {
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     pending.code = code;
-    pending.expiresAt = Date.now() + 15 * 60 * 1000;
+    pending.expiresAt = Date.now() + config.auth.verificationCodeExpiresInMs;
 
     await this.emailService.sendVerificationCodeEmail(email, pending.user.name || "Operator", code);
     return { success: true, message: "New verification code sent to your email" };

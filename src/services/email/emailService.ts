@@ -72,7 +72,7 @@ export class EmailService {
             ${code}
           </div>
         </div>
-        <p style="font-size: 13px; color: #94a3b8; text-align: center;">This code will expire in 15 minutes.</p>
+        <p style="font-size: 13px; color: #94a3b8; text-align: center;">This code will expire in ${config.auth.verificationCodeExpiresInMs / (60 * 1000)} minutes.</p>
         <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 24px 0;" />
         <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">If you did not request this verification, please disregard this message.</p>
       </div>

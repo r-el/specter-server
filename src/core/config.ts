@@ -9,11 +9,20 @@ export const config = {
     environment: env.get("NODE_ENV").default("development").asString(),
     isProduction: env.get("NODE_ENV").default("development").asString() === "production",
     isDevelopment: env.get("NODE_ENV").default("development").asString() !== "production",
+    rateLimitWindowMs: env
+      .get("RATE_LIMIT_WINDOW_MS")
+      .default(15 * 60 * 1000)
+      .asIntPositive(),
+    rateLimitMax: env.get("RATE_LIMIT_MAX").default(1000).asIntPositive(),
   },
   auth: {
     bcryptSaltRounds: env.get("BCRYPT_SALT_ROUNDS").default(10).asIntPositive(),
     jwtSecret: resolveSecret("jwt_secret", "JWT_SECRET"),
     jwtExpiresIn: env.get("JWT_EXPIRES_IN").default("7d").asString(),
+    verificationCodeExpiresInMs: env
+      .get("VERIFICATION_CODE_EXPIRES_IN_MS")
+      .default(15 * 60 * 1000)
+      .asIntPositive(),
   },
   cors: {
     allowedOrigins: env.get("ALLOWED_ORIGINS").default("").asArray(),
