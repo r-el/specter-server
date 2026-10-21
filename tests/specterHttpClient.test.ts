@@ -96,6 +96,41 @@ describe("SpecterHttpClient", () => {
     await expect(call).rejects.toMatchObject({ statusCode: 503 });
   });
 
+  it("checks health, caches the result, and respects clearHealthCache", async () => {
+    let callCount = 0;
+    const client = new SpecterHttpClient(await buildConfig("token"), async () => {
+      callCount += 1;
+      return new Response(null, { status: 200 });
+    });
+
+    expect(await client.isHealthy()).toBe(true);
+    expect(callCount).toBe(1);
+
+    // Second call should return cached result without calling fetch again
+    expect(await client.isHealthy()).toBe(true);
+    expect(callCount).toBe(1);
+
+    // After clearing cache, it should query health again
+    client.clearHealthCache();
+    expect(await client.isHealthy()).toBe(true);
+    expect(callCount).toBe(2);
+  });
+
+  it("returns false quickly when health check fails and caches failure", async () => {
+    let callCount = 0;
+    const client = new SpecterHttpClient(await buildConfig("token"), async () => {
+      callCount += 1;
+      throw new Error("Connection refused");
+    });
+
+    expect(await client.isHealthy()).toBe(false);
+    expect(callCount).toBe(1);
+
+    // Cached failure
+    expect(await client.isHealthy()).toBe(false);
+    expect(callCount).toBe(1);
+  });
+
   it("throws 503 if the token file cannot be read", async () => {
     const client = new SpecterHttpClient({
       apiUrl: "http://specter.test",

@@ -1,4 +1,4 @@
-import { inject, injectable } from "tsyringe";
+import { container, inject, injectable } from "tsyringe";
 import { CameraRepository } from "@cameras/domain/cameraRepository.js";
 import { SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
 import { SpecterHttpClient } from "@specter/specterHttpClient.js";
@@ -7,14 +7,17 @@ import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
 import { ICamera, ICameraChanges, ICameraCreate } from "~types/interfaces.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import logger from "@core/utils/logger.js";
+import { NotificationDispatcher } from "@notifications/notificationDispatcher.js";
 
-async function getDispatcherSafe() {
+function getDispatcherSafe(): NotificationDispatcher | null {
   try {
-    const { getNotificationDispatcher } = await import("@notifications/socketServer.js");
-    return getNotificationDispatcher();
+    if (container.isRegistered(NotificationDispatcher)) {
+      return container.resolve(NotificationDispatcher);
+    }
   } catch {
     return null;
   }
+  return null;
 }
 
 /**
@@ -72,7 +75,7 @@ export class HybridCameraRepository implements CameraRepository {
 
     this.agentStore.updateCameraStatus(cameraId, "starting");
     try {
-      const dispatcher = await getDispatcherSafe();
+      const dispatcher = getDispatcherSafe();
       if (camera.created_by) {
         dispatcher?.toOwnerAgents(camera.created_by, "agent:camera:start", { cameraId });
       } else {
@@ -109,7 +112,7 @@ export class HybridCameraRepository implements CameraRepository {
 
     this.agentStore.updateCameraStatus(cameraId, "stopped");
     try {
-      const dispatcher = await getDispatcherSafe();
+      const dispatcher = getDispatcherSafe();
       if (camera.created_by) {
         dispatcher?.toOwnerAgents(camera.created_by, "agent:camera:stop", { cameraId });
       } else {
@@ -157,7 +160,7 @@ export class HybridCameraRepository implements CameraRepository {
     this.agentStore.upsertCamera(camera.created_by, newCamera);
 
     try {
-      const dispatcher = await getDispatcherSafe();
+      const dispatcher = getDispatcherSafe();
       dispatcher?.toOwnerAgents(camera.created_by, "cameras:updated", {
         change_kind: "created",
         camera_id: id,
@@ -200,7 +203,7 @@ export class HybridCameraRepository implements CameraRepository {
       }) ?? camera;
 
     try {
-      const dispatcher = await getDispatcherSafe();
+      const dispatcher = getDispatcherSafe();
       if (camera.created_by) {
         dispatcher?.toOwnerAgents(camera.created_by, "cameras:updated", {
           change_kind: "updated",
@@ -241,7 +244,7 @@ export class HybridCameraRepository implements CameraRepository {
     const camera = this.agentStore.getCamera(cameraId);
     this.agentStore.removeCamera(cameraId);
     try {
-      const dispatcher = await getDispatcherSafe();
+      const dispatcher = getDispatcherSafe();
       if (camera?.created_by) {
         dispatcher?.toOwnerAgents(camera.created_by, "cameras:updated", {
           change_kind: "deleted",

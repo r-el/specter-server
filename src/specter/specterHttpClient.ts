@@ -41,17 +41,66 @@ function describeErrorBody(body: unknown): string {
   const detail = (body as { detail?: unknown } | undefined)?.detail;
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    return detail
-      .map((item) => `${(item?.loc ?? []).slice(1).join(".")}: ${item?.msg ?? "invalid"}`)
-      .join("; ");
+    return detail.map((item) => `${(item?.loc ?? []).slice(1).join(".")}: ${item?.msg ?? "invalid"}`).join("; ");
   }
   return "Specter rejected the request";
+}
+
+/**
+ * Manages TTL-based health check caching and in-flight deduplication
+ * for Specter API health probes.
+ */
+class SpecterHealthMonitor {
+  private static readonly HEALTH_TTL_MS = 20_000;
+  private static readonly HEALTH_TIMEOUT_MS = 1_500;
+
+  private cachedHealth: { result: boolean; expiresAt: number } | null = null;
+  private inFlightHealthCheck: Promise<boolean> | null = null;
+
+  clear(): void {
+    this.cachedHealth = null;
+    this.inFlightHealthCheck = null;
+  }
+
+  async isHealthy(
+    apiUrl: string,
+    requestTimeoutMs: number,
+    fetchImplementation: FetchImplementation,
+  ): Promise<boolean> {
+    const now = Date.now();
+    if (this.cachedHealth && this.cachedHealth.expiresAt > now) {
+      return this.cachedHealth.result;
+    }
+    if (this.inFlightHealthCheck) {
+      return this.inFlightHealthCheck;
+    }
+
+    this.inFlightHealthCheck = (async () => {
+      try {
+        const timeout = Math.min(requestTimeoutMs, SpecterHealthMonitor.HEALTH_TIMEOUT_MS);
+        const response = await fetchImplementation(new Request(`${apiUrl}/health`), {
+          signal: AbortSignal.timeout(timeout),
+        });
+        const isOk = response.ok;
+        this.cachedHealth = { result: isOk, expiresAt: Date.now() + SpecterHealthMonitor.HEALTH_TTL_MS };
+        return isOk;
+      } catch {
+        this.cachedHealth = { result: false, expiresAt: Date.now() + SpecterHealthMonitor.HEALTH_TTL_MS };
+        return false;
+      } finally {
+        this.inFlightHealthCheck = null;
+      }
+    })();
+
+    return this.inFlightHealthCheck;
+  }
 }
 
 export class SpecterHttpClient {
   readonly api: Client<paths>;
   readonly ownerId: string;
   private token: string | null = null;
+  private readonly healthMonitor = new SpecterHealthMonitor();
 
   constructor(
     private readonly config: SpecterConfig,
@@ -87,15 +136,13 @@ export class SpecterHttpClient {
     return response;
   }
 
+  /** Clears the cached health check result (useful in testing). */
+  clearHealthCache(): void {
+    this.healthMonitor.clear();
+  }
+
   async isHealthy(): Promise<boolean> {
-    try {
-      const response = await this.fetchImplementation(new Request(`${this.config.apiUrl}/health`), {
-        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return this.healthMonitor.isHealthy(this.config.apiUrl, this.config.requestTimeoutMs, this.fetchImplementation);
   }
 
   async authorizationHeader(): Promise<string> {
