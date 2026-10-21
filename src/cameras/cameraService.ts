@@ -1,6 +1,6 @@
 // BLL for camera operations: cameras live in Specter, access rules and assignments in fa.
 
-import { inject, injectable } from "tsyringe";
+import { container, inject, injectable } from "tsyringe";
 import {
   canManageAssignments,
   canManageCamera,
@@ -12,12 +12,19 @@ import { CameraAssignmentRepository, CameraRepository } from "@cameras/domain/ca
 import { CAMERA_ASSIGNMENT_REPOSITORY, CAMERA_REPOSITORY } from "@cameras/infrastructure/tokens.js";
 import { ApiError } from "@core/middlewares/errorHandler.js";
 import logger from "@core/utils/logger.js";
-import {
-  ICamera,
-  ICameraAssignment,
-  ICameraChanges,
-  ICameraCredentials,
-} from "~types/interfaces.js";
+import { ICamera, ICameraAssignment, ICameraChanges, ICameraCredentials } from "~types/interfaces.js";
+import { NotificationDispatcher } from "@notifications/notificationDispatcher.js";
+
+function getDispatcherSafe(): NotificationDispatcher | null {
+  try {
+    if (container.isRegistered(NotificationDispatcher)) {
+      return container.resolve(NotificationDispatcher);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export interface CameraUser {
   id: string;
@@ -154,11 +161,28 @@ export class CameraService {
   async assignCameraToUser(cameraId: string, targetUserId: string, user: CameraUser): Promise<ICameraAssignment> {
     await this.requireAssignmentManager(cameraId, user);
     try {
-      return await this.assignmentRepository.assign({
+      const assignment = await this.assignmentRepository.assign({
         camera_id: cameraId,
         user_id: targetUserId,
         assigned_by: user.id,
       });
+
+      try {
+        const dispatcher = getDispatcherSafe();
+        dispatcher?.joinCameraByUser(targetUserId, cameraId);
+        dispatcher?.toUser(targetUserId, {
+          kind: "configuration_changed",
+          entityKind: "camera",
+          entityId: cameraId,
+          changeKind: "updated",
+          level: "info",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        logger.warn("Failed to notify user on camera assignment", { error: err });
+      }
+
+      return assignment;
     } catch (error) {
       if (error.message.includes("duplicate key")) {
         throw new ApiError(409, "Camera is already assigned to this user");
@@ -168,8 +192,28 @@ export class CameraService {
   }
 
   async removeCameraAssignment(cameraId: string, targetUserId: string, user: CameraUser): Promise<void> {
-    await this.requireAssignmentManager(cameraId, user);
+    const camera = await this.getAccessibleCamera(cameraId, user);
+    if (!canManageAssignments(camera, toSubject(user))) {
+      throw new ApiError(403, "Only the camera's creator or an admin can manage its assignments");
+    }
     await this.assignmentRepository.remove(cameraId, targetUserId);
+
+    try {
+      const dispatcher = getDispatcherSafe();
+      if (camera.created_by !== targetUserId) {
+        await dispatcher?.leaveCameraByUser(targetUserId, cameraId);
+      }
+      dispatcher?.toUser(targetUserId, {
+        kind: "configuration_changed",
+        entityKind: "camera",
+        entityId: cameraId,
+        changeKind: "updated",
+        level: "info",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.warn("Failed to notify user on camera assignment removal", { error: err });
+    }
   }
 
   async getCameraAssignments(cameraId: string, user: CameraUser): Promise<ICameraAssignment[]> {

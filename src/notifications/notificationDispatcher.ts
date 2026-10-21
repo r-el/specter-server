@@ -10,7 +10,7 @@
  */
 
 import logger from "@core/utils/logger.js";
-import { cameraRoom, roleRoom } from "./cameraRoomManager.js";
+import { cameraRoom, roleRoom, userRoom, joinUserToCameraRoom, leaveUserFromCameraRoom } from "./cameraRoomManager.js";
 import type { Server } from "socket.io";
 import type { Notification, ServerToClientEvents, ClientToServerEvents, SocketData } from "./types.js";
 
@@ -57,6 +57,16 @@ export class NotificationDispatcher {
     this.io.in(roleRoom(role)).socketsJoin(cameraRoom(cameraId));
   }
 
+  /** Adds every connected socket for a user to a camera's room. */
+  joinCameraByUser(userId: string, cameraId: string): void {
+    joinUserToCameraRoom(this.io, userId, cameraId);
+  }
+
+  /** Removes non-admin sockets for a user from a camera's room. */
+  async leaveCameraByUser(userId: string, cameraId: string): Promise<void> {
+    await leaveUserFromCameraRoom(this.io, userId, cameraId);
+  }
+
   /** Empties a camera's room, after the camera was deleted. */
   closeCamera(cameraId: string): void {
     this.io.socketsLeave(cameraRoom(cameraId));
@@ -66,17 +76,11 @@ export class NotificationDispatcher {
    * Sends a notification to a single user across all their connections.
    * Useful for user-specific messages that are not camera-scoped.
    */
-  async toUser(userId: string, notification: Notification): Promise<void> {
-    const sockets = await this.io.fetchSockets();
-    const userSockets = sockets.filter((s) => s.data.userId === userId);
-
-    for (const socket of userSockets) {
-      socket.emit("notification", notification);
-    }
+  toUser(userId: string, notification: Notification): void {
+    this.io.to(userRoom(userId)).emit("notification", notification);
 
     logger.debug("Notification sent to user", {
       userId,
-      socketCount: userSockets.length,
       kind: notification.kind,
     });
   }

@@ -95,6 +95,7 @@ export interface ServerToClientEvents {
   "camera:subscribed": (cameraIds: string[]) => void;
   "webrtc:answer": (payload: { cameraId: string; sdp: string; correlationId: string }) => void;
   "webrtc:ice_candidate": (payload: { cameraId: string; candidate: unknown; correlationId: string }) => void;
+  "webrtc:error": (payload: { cameraId: string; correlationId: string; error: string; retryable?: boolean }) => void;
   error: (payload: { message: string }) => void;
 }
 
@@ -154,6 +155,13 @@ export interface AgentClientToServerEvents {
     candidate: unknown;
     correlationId: string;
     clientSocketId: string;
+  }) => void;
+  "webrtc:error": (payload: {
+    cameraId: string;
+    correlationId: string;
+    clientSocketId: string;
+    error: string;
+    retryable?: boolean;
   }) => void;
 }
 

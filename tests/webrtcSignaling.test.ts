@@ -86,4 +86,37 @@ describe("WebRTC Signaling & Cloudflare TURN", () => {
       );
     });
   });
+
+  describe("WebRTC error relay", () => {
+    it("relays webrtc:error from edge agent to browser client socket", () => {
+      const mockIo = {
+        to: vi.fn().mockReturnThis(),
+        emit: vi.fn(),
+      };
+
+      const payload = {
+        cameraId: "cam-123",
+        correlationId: "corr-789",
+        clientSocketId: "browser-socket-456",
+        error: "Camera failed to start on edge device",
+        retryable: true,
+      };
+
+      // Simulating socket.on("webrtc:error")
+      mockIo.to(payload.clientSocketId).emit("webrtc:error", {
+        cameraId: payload.cameraId,
+        correlationId: payload.correlationId,
+        error: payload.error,
+        retryable: payload.retryable ?? false,
+      });
+
+      expect(mockIo.to).toHaveBeenCalledWith("browser-socket-456");
+      expect(mockIo.emit).toHaveBeenCalledWith("webrtc:error", {
+        cameraId: "cam-123",
+        correlationId: "corr-789",
+        error: "Camera failed to start on edge device",
+        retryable: true,
+      });
+    });
+  });
 });

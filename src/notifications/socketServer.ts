@@ -9,8 +9,8 @@
  */
 
 import { Server as SocketIOServer, type Namespace, type Socket } from "socket.io";
+import { container } from "tsyringe";
 import logger from "@core/utils/logger.js";
-import { container } from "@core/di.js";
 import { CameraService } from "@cameras/cameraService.js";
 import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
 import { AgentAlertStore } from "@alerts/infrastructure/agentAlertStore.js";
@@ -334,6 +334,25 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       },
     );
 
+    // WebRTC error relay from edge agent back to browser client
+    socket.on(
+      "webrtc:error",
+      (payload: {
+        cameraId: string;
+        correlationId: string;
+        clientSocketId: string;
+        error: string;
+        retryable?: boolean;
+      }) => {
+        io.to(payload.clientSocketId).emit("webrtc:error", {
+          cameraId: payload.cameraId,
+          correlationId: payload.correlationId,
+          error: payload.error,
+          retryable: payload.retryable ?? false,
+        });
+      },
+    );
+
     // WebRTC ICE candidate from agent back to browser client
     socket.on(
       "webrtc:ice_candidate",
@@ -414,8 +433,16 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
   });
 
   dispatcher = new NotificationDispatcher(io);
+  container.registerInstance(NotificationDispatcher, dispatcher);
 
   logger.info("Socket.IO server initialized");
+  return dispatcher;
+}
+
+/**
+ * Returns the global dispatcher, or null if not yet initialized.
+ */
+export function getNotificationDispatcherSafe(): NotificationDispatcher | null {
   return dispatcher;
 }
 

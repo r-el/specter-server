@@ -10,27 +10,13 @@
  */
 
 import logger from "@core/utils/logger.js";
-import { CameraService } from "@cameras/cameraService.js";
+import type { CameraService } from "@cameras/cameraService.js";
 import type { Server, Socket } from "socket.io";
-import type {
-  ServerToClientEvents,
-  ClientToServerEvents,
-  SocketData,
-} from "./types.js";
+import type { ServerToClientEvents, ClientToServerEvents, SocketData } from "./types.js";
 
-type AppSocket = Socket<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  SocketData
->;
+type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
-type AppServer = Server<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  SocketData
->;
+type AppServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 /** Builds the Socket.IO room name for a camera. */
 export function cameraRoom(cameraId: string): string {
@@ -42,18 +28,36 @@ export function roleRoom(role: string): string {
   return `role:${role}`;
 }
 
+/** Builds the Socket.IO room name for an individual user. */
+export function userRoom(userId: string): string {
+  return `user:${userId}`;
+}
+
+/** Adds every connected socket for a user to a camera's room. */
+export function joinUserToCameraRoom(io: AppServer, userId: string, cameraId: string): void {
+  io.in(userRoom(userId)).socketsJoin(cameraRoom(cameraId));
+}
+
+/** Removes non-admin sockets for a user from a camera's room. */
+export async function leaveUserFromCameraRoom(io: AppServer, userId: string, cameraId: string): Promise<void> {
+  const sockets = await io.in(userRoom(userId)).fetchSockets();
+  for (const socket of sockets) {
+    if (socket.data.role !== "admin") {
+      socket.leave(cameraRoom(cameraId));
+    }
+  }
+}
+
 /**
  * Subscribes a newly connected socket to every camera the user is allowed
  * to access, and registers handlers for dynamic subscribe/unsubscribe.
  */
-export async function joinAuthorizedCameras(
-  socket: AppSocket,
-  cameraService: CameraService,
-): Promise<void> {
+export async function joinAuthorizedCameras(socket: AppSocket, cameraService: CameraService): Promise<void> {
   const { userId, role } = socket.data;
 
   try {
     await socket.join(roleRoom(role));
+    await socket.join(userRoom(userId));
     const cameras = await cameraService.listAccessibleCameras({ id: userId, role });
     const cameraIds = cameras.map((camera) => camera.id);
 
@@ -81,10 +85,7 @@ export async function joinAuthorizedCameras(
  * Allows the client to subscribe/unsubscribe from cameras at runtime
  * (e.g. when the dashboard view changes).
  */
-export function registerRoomHandlers(
-  socket: AppSocket,
-  cameraService: CameraService,
-): void {
+export function registerRoomHandlers(socket: AppSocket, cameraService: CameraService): void {
   socket.on("subscribe:cameras", async (requestedIds: string[]) => {
     const { userId, role } = socket.data;
 

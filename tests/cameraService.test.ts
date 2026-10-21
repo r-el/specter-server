@@ -37,6 +37,15 @@ function buildService(cameras: ICamera[], assignments: ICameraAssignment[] = [])
       assignments.filter((assignment) => assignment.user_id === userId).map((assignment) => assignment.camera_id),
     isAssigned: async (id, userId) =>
       assignments.some((assignment) => assignment.camera_id === id && assignment.user_id === userId),
+    assign: async (assignment) => {
+      assignments.push(assignment);
+      return assignment;
+    },
+    remove: async (id, userId) => {
+      const idx = assignments.findIndex((a) => a.camera_id === id && a.user_id === userId);
+      if (idx >= 0) assignments.splice(idx, 1);
+    },
+    listForCamera: async (id) => assignments.filter((a) => a.camera_id === id),
   } as Partial<CameraAssignmentRepository> as CameraAssignmentRepository;
   return { service: new CameraService(cameraRepository, assignmentRepository), created };
 }
@@ -98,5 +107,38 @@ describe("CameraService", () => {
         location: "North gate",
       }),
     ]);
+  });
+
+  it("assigns and removes camera from user", async () => {
+    const { service } = buildService(cameras, []);
+
+    // Operator-1 created camera 'a', so can assign it
+    const assigned = await service.assignCameraToUser(cameraId("a"), "viewer-1", {
+      id: "operator-1",
+      role: "operator",
+    });
+
+    expect(assigned).toMatchObject({
+      camera_id: cameraId("a"),
+      user_id: "viewer-1",
+    });
+
+    // Viewer-1 can now access camera 'a'
+    const accessible = await service.getAccessibleCamera(cameraId("a"), {
+      id: "viewer-1",
+      role: "viewer",
+    });
+    expect(accessible.id).toBe(cameraId("a"));
+
+    // Remove assignment
+    await service.removeCameraAssignment(cameraId("a"), "viewer-1", {
+      id: "operator-1",
+      role: "operator",
+    });
+
+    // Viewer-1 cannot access camera 'a' anymore
+    await expect(service.getAccessibleCamera(cameraId("a"), { id: "viewer-1", role: "viewer" })).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 });
