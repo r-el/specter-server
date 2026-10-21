@@ -74,7 +74,7 @@ export class WatchlistService {
         error: err instanceof Error ? err.message : String(err),
       });
     }
-    return this.agentStore.getWatchlists(this.specter.ownerId);
+    return this.agentStore.getWatchlists();
   }
 
   async createWatchlist(body: SpecterBody): Promise<SpecterWatchlist> {
@@ -103,7 +103,7 @@ export class WatchlistService {
 
     try {
       const dispatcher = getDispatcherSafe();
-      dispatcher?.toOwnerAgents(this.specter.ownerId, "agent:watchlist:create", { watchlist: newWl });
+      dispatcher?.toAgents("agent:watchlist:create", { watchlist: newWl });
       dispatcher?.broadcast({
         kind: "configuration_changed",
         entityKind: "watchlist",
@@ -160,7 +160,7 @@ export class WatchlistService {
     this.agentStore.upsertWatchlist(wl.owner_id, updated);
     try {
       const dispatcher = getDispatcherSafe();
-      dispatcher?.toOwnerAgents(wl.owner_id, "agent:watchlist:update", { watchlistId, changes: body });
+      dispatcher?.toAgents("agent:watchlist:update", { watchlistId, changes: body });
       dispatcher?.broadcast({
         kind: "configuration_changed",
         entityKind: "watchlist",
@@ -191,7 +191,7 @@ export class WatchlistService {
     this.agentStore.deleteWatchlist(watchlistId);
     try {
       const dispatcher = getDispatcherSafe();
-      dispatcher?.toOwnerAgents(this.specter.ownerId, "agent:watchlist:delete", { watchlistId });
+      dispatcher?.toAgents("agent:watchlist:delete", { watchlistId });
       dispatcher?.broadcast({
         kind: "configuration_changed",
         entityKind: "watchlist",
