@@ -144,6 +144,7 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
       methods: [...config.cors.methods],
       credentials: config.cors.credentials,
     },
+    maxHttpBufferSize: 1e7, // 10MB to handle image transfers and sync payloads
     // Only use WebSocket — skip long-polling for lower latency
     transports: ["websocket", "polling"],
     pingInterval: 25_000,
