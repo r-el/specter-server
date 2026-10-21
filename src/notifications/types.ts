@@ -132,6 +132,13 @@ export interface AgentServerToClientEvents {
   "agent:watchlist:update": (payload: { watchlistId: string; changes: unknown }) => void;
   "agent:watchlist:delete": (payload: { watchlistId: string }) => void;
   "agent:target:delete": (payload: { watchlistId: string; targetId: string }) => void;
+  "agent:target_image:request": (payload: {
+    request_id: string;
+    watchlist_id: string;
+    target_id: string;
+    image_id: string;
+  }) => void;
+  "agent:alert_snapshot:request": (payload: { request_id: string; alert_id: string }) => void;
   "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
   "webrtc:ice_candidate": (payload: {
     cameraId: string;
@@ -147,6 +154,22 @@ export interface AgentClientToServerEvents {
   "agent:cameras:sync": (payload: { cameras: unknown[] }) => void;
   "agent:watchlists:sync": (payload: { watchlists: unknown[]; targets?: unknown[] }) => void;
   "agent:alerts:sync": (payload: { alerts: unknown[] }) => void;
+  "agent:target_image:response": (payload: {
+    request_id: string;
+    watchlist_id?: string;
+    target_id?: string;
+    image_id?: string;
+    content_type?: string;
+    image_base64?: string;
+    error?: string;
+  }) => void;
+  "agent:alert_snapshot:response": (payload: {
+    request_id: string;
+    alert_id?: string;
+    content_type?: string;
+    snapshot_base64?: string;
+    error?: string;
+  }) => void;
   "agent:camera:status_changed": (payload: {
     cameraId: string;
     cameraName?: string | null;

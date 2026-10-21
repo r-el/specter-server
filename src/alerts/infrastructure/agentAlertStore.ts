@@ -20,6 +20,23 @@ export class AgentAlertStore {
   private readonly alerts = new Map<string, SpecterAlert>();
   private readonly snapshots = new Map<string, StoredSnapshot>();
 
+  /** Checks if a snapshot exists in memory for this alert ID. */
+  hasSnapshot(alertId: string): boolean {
+    return this.snapshots.has(alertId);
+  }
+
+  /** Saves a snapshot JPEG directly into memory. */
+  saveSnapshot(alertId: string, contentType: string, buffer: Buffer): void {
+    if (this.snapshots.size >= MAX_STORED_SNAPSHOTS) {
+      const oldestSnapKey = this.snapshots.keys().next().value;
+      if (oldestSnapKey) this.snapshots.delete(oldestSnapKey);
+    }
+    this.snapshots.set(alertId, {
+      contentType: contentType || "image/jpeg",
+      buffer,
+    });
+  }
+
   /**
    * Ingests an alert forwarded by an edge agent.
    */

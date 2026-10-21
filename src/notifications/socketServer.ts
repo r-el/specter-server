@@ -49,6 +49,88 @@ type AgentSocket = Socket<AgentClientToServerEvents, AgentServerToClientEvents, 
 let dispatcher: NotificationDispatcher | null = null;
 let io: AppServer | null = null;
 
+const pendingTargetImageRequests = new Map<
+  string,
+  (res: { buffer?: Buffer; contentType?: string; error?: string }) => void
+>();
+
+const pendingAlertSnapshotRequests = new Map<
+  string,
+  (res: { buffer?: Buffer; contentType?: string; error?: string }) => void
+>();
+
+export async function requestTargetImageFromAgent(
+  watchlistId: string,
+  targetId: string,
+  imageId: string,
+  timeoutMs: number = 8000,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!dispatcher) return null;
+  const requestId = `img_req_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingTargetImageRequests.delete(requestId);
+      resolve(null);
+    }, timeoutMs);
+
+    pendingTargetImageRequests.set(requestId, (res) => {
+      clearTimeout(timer);
+      if (res.buffer && res.contentType) {
+        resolve({ buffer: res.buffer, contentType: res.contentType });
+      } else {
+        resolve(null);
+      }
+    });
+
+    try {
+      dispatcher.toAgents("agent:target_image:request", {
+        request_id: requestId,
+        watchlist_id: watchlistId,
+        target_id: targetId,
+        image_id: imageId,
+      });
+    } catch {
+      clearTimeout(timer);
+      pendingTargetImageRequests.delete(requestId);
+      resolve(null);
+    }
+  });
+}
+
+export async function requestAlertSnapshotFromAgent(
+  alertId: string,
+  timeoutMs: number = 8000,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!dispatcher) return null;
+  const requestId = `snap_req_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingAlertSnapshotRequests.delete(requestId);
+      resolve(null);
+    }, timeoutMs);
+
+    pendingAlertSnapshotRequests.set(requestId, (res) => {
+      clearTimeout(timer);
+      if (res.buffer && res.contentType) {
+        resolve({ buffer: res.buffer, contentType: res.contentType });
+      } else {
+        resolve(null);
+      }
+    });
+
+    try {
+      dispatcher.toAgents("agent:alert_snapshot:request", {
+        request_id: requestId,
+        alert_id: alertId,
+      });
+    } catch {
+      clearTimeout(timer);
+      pendingAlertSnapshotRequests.delete(requestId);
+      resolve(null);
+    }
+  });
+}
+
 /**
  * Attaches Socket.IO to the HTTP server and returns the dispatcher
  * that the rest of the application uses to send notifications.
@@ -269,6 +351,19 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
             crossing_direction: inner.crossing_direction ?? null,
           };
           agentAlertStore.addAlert(alertRecord, raw.snapshot_base64);
+          if (raw.snapshot_base64) {
+            try {
+              const buf = Buffer.from(raw.snapshot_base64, "base64");
+              if (inner.id && inner.id !== alertId) {
+                agentAlertStore.saveSnapshot(inner.id, "image/jpeg", buf);
+              }
+              if (inner.message_id && inner.message_id !== alertId) {
+                agentAlertStore.saveSnapshot(inner.message_id, "image/jpeg", buf);
+              }
+            } catch (err) {
+              logger.warn("Failed to index snapshot alias for alert", { alertId, err });
+            }
+          }
         }
         logger.info("Synced alerts backfill from edge agent", {
           agentId: agent.id,
@@ -448,6 +543,38 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
         });
       },
     );
+
+    // On-demand target reference image response from edge agent
+    socket.on("agent:target_image:response", (payload) => {
+      const handler = pendingTargetImageRequests.get(payload.request_id);
+      if (handler) {
+        pendingTargetImageRequests.delete(payload.request_id);
+        if (payload.image_base64) {
+          handler({
+            buffer: Buffer.from(payload.image_base64, "base64"),
+            contentType: payload.content_type || "image/jpeg",
+          });
+        } else {
+          handler({ error: payload.error || "Not found" });
+        }
+      }
+    });
+
+    // On-demand alert snapshot response from edge agent
+    socket.on("agent:alert_snapshot:response", (payload) => {
+      const handler = pendingAlertSnapshotRequests.get(payload.request_id);
+      if (handler) {
+        pendingAlertSnapshotRequests.delete(payload.request_id);
+        if (payload.snapshot_base64) {
+          handler({
+            buffer: Buffer.from(payload.snapshot_base64, "base64"),
+            contentType: payload.content_type || "image/jpeg",
+          });
+        } else {
+          handler({ error: payload.error || "Not found" });
+        }
+      }
+    });
 
     // Dynamic camera sync request from agent
     socket.on("cameras:request_sync", async () => {

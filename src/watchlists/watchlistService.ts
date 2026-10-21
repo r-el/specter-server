@@ -330,7 +330,36 @@ export class WatchlistService {
     } catch {
       // fallback
     }
-    return { contentType: "image/jpeg", body: null };
+
+    const cached = this.agentStore.getImage(imageId);
+    if (cached) {
+      return {
+        contentType: cached.contentType,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array(cached.buffer));
+            controller.close();
+          },
+        }),
+      };
+    }
+
+    const { requestTargetImageFromAgent } = await import("@notifications/socketServer.js");
+    const fromAgent = await requestTargetImageFromAgent(watchlistId, targetId, imageId);
+    if (fromAgent) {
+      this.agentStore.setImage(imageId, fromAgent.contentType, fromAgent.buffer);
+      return {
+        contentType: fromAgent.contentType,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array(fromAgent.buffer));
+            controller.close();
+          },
+        }),
+      };
+    }
+
+    throw new ApiError(404, "Reference image not found");
   }
 
   async deleteImage(watchlistId: string, targetId: string, imageId: string): Promise<void> {

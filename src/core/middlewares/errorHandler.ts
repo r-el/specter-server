@@ -51,6 +51,10 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       ? rawMessage || "Internal server error"
       : "An unexpected error occurred";
 
+  if (typeof res.setHeader === "function" && !res.headersSent) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  }
+
   res.status(statusCode).json({
     success: false,
     error: errorResponse,

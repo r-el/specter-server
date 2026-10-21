@@ -11,6 +11,21 @@ export class AgentWatchlistStore {
   private readonly watchlistsByAgent = new Map<string, Map<string, SpecterWatchlist>>();
   private readonly agentToOwner = new Map<string, string>();
   private readonly targetsByWatchlist = new Map<string, Map<string, SpecterTarget>>();
+  private readonly images = new Map<string, { buffer: Buffer; contentType: string }>();
+
+  /** Retrieves a cached target reference image. */
+  getImage(imageId: string): { buffer: Buffer; contentType: string } | null {
+    return this.images.get(imageId) ?? null;
+  }
+
+  /** Caches a target reference image in memory. */
+  setImage(imageId: string, contentType: string, buffer: Buffer): void {
+    if (this.images.size > 200) {
+      const oldest = this.images.keys().next().value;
+      if (oldest) this.images.delete(oldest);
+    }
+    this.images.set(imageId, { buffer, contentType: contentType || "image/jpeg" });
+  }
 
   /**
    * Replaces or updates the watchlists and targets associated with a specific agent.

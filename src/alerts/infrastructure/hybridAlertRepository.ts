@@ -90,6 +90,22 @@ export class HybridAlertRepository implements AlertRepository {
     } catch (err) {
       logger.debug("Specter API unavailable for readSnapshot, falling back to AgentAlertStore", { alertId });
     }
+
+    if (this.agentAlertStore.hasSnapshot(alertId)) {
+      return this.agentAlertStore.readSnapshot(alertId);
+    }
+
+    try {
+      const { requestAlertSnapshotFromAgent } = await import("@notifications/socketServer.js");
+      const fromAgent = await requestAlertSnapshotFromAgent(alertId);
+      if (fromAgent) {
+        this.agentAlertStore.saveSnapshot(alertId, fromAgent.contentType, fromAgent.buffer);
+        return this.agentAlertStore.readSnapshot(alertId);
+      }
+    } catch (err) {
+      logger.warn("Failed to request snapshot on-demand from agent", { alertId, err });
+    }
+
     return this.agentAlertStore.readSnapshot(alertId);
   }
 }

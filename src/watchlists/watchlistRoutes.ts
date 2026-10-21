@@ -152,12 +152,10 @@ router.post(
   catchAsync(async (req: TypedRequest<typeof targetSchema>, res: Response) => {
     const photos = readPhotos(req);
     if (photos.length === 0) throw new ApiError(400, "At least one image is required");
-    res
-      .status(201)
-      .json({
-        success: true,
-        data: await watchlistService().addImages(req.params.watchlist_id, req.params.target_id, photos),
-      });
+    res.status(201).json({
+      success: true,
+      data: await watchlistService().addImages(req.params.watchlist_id, req.params.target_id, photos),
+    });
   }),
 );
 
@@ -170,7 +168,11 @@ router.get(
       req.params.target_id,
       req.params.image_id,
     );
-    res.setHeader("Content-Type", image.contentType);
+    if (!image || !image.body) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      throw new ApiError(404, "Reference image not found");
+    }
+    res.setHeader("Content-Type", image.contentType || "image/jpeg");
     // Photos of real people: never kept by shared caches.
     res.setHeader("Cache-Control", "private, max-age=3600");
     Readable.fromWeb(image.body as import("node:stream/web").ReadableStream).pipe(res);

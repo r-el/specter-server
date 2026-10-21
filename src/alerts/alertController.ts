@@ -1,15 +1,10 @@
 import { Readable } from "node:stream";
 import { Response } from "express";
 import { container } from "@core/di.js";
-import { catchAsync } from "@core/middlewares/errorHandler.js";
+import { catchAsync, ApiError } from "@core/middlewares/errorHandler.js";
 import { TypedRequest } from "~types/request.js";
 import { AlertService } from "./alertService.js";
-import {
-  listAlertsSchema,
-  alertSummarySchema,
-  getAlertSchema,
-  resolveAlertSchema,
-} from "./alertSchemas.js";
+import { listAlertsSchema, alertSummarySchema, getAlertSchema, resolveAlertSchema } from "./alertSchemas.js";
 
 const alertService = () => container.resolve(AlertService);
 
@@ -41,7 +36,11 @@ export class AlertController {
 
   static readSnapshot = catchAsync(async (req: TypedRequest<typeof getAlertSchema>, res: Response) => {
     const snapshot = await alertService().readSnapshot(req.params.alert_id, req.user);
-    res.setHeader("Content-Type", snapshot.contentType);
+    if (!snapshot || !snapshot.body) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      throw new ApiError(404, `Snapshot for alert ${req.params.alert_id} not found`);
+    }
+    res.setHeader("Content-Type", snapshot.contentType || "image/jpeg");
     // Faces of real people: never kept by shared caches.
     res.setHeader("Cache-Control", "private, max-age=3600");
     Readable.fromWeb(snapshot.body as import("node:stream/web").ReadableStream).pipe(res);

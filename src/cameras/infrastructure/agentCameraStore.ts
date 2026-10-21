@@ -35,7 +35,7 @@ export class AgentCameraStore {
 
     const agentMap = new Map<string, ICamera>();
     for (const camera of cameras) {
-      if (!camera.created_by) {
+      if (!camera.created_by || camera.created_by === "facealert") {
         camera.created_by = ownerId;
       }
       agentMap.set(camera.id, camera);
