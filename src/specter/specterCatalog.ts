@@ -1,5 +1,7 @@
 import type { SpecterHttpClient } from "./specterHttpClient.js";
 import type { SpecterWatchlist } from "./specterTypes.js";
+import type { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
+import type { AgentWatchlistStore } from "@watchlists/infrastructure/agentWatchlistStore.js";
 
 // configuration.changed events invalidate the cache at once; the limit only bounds a missed event.
 const DEFAULT_TIME_TO_LIVE_MS = 60_000;
@@ -18,6 +20,8 @@ export class SpecterCatalog {
   constructor(
     private readonly specter: SpecterHttpClient,
     private readonly timeToLiveMs = DEFAULT_TIME_TO_LIVE_MS,
+    private readonly agentCameraStore?: AgentCameraStore,
+    private readonly agentWatchlistStore?: AgentWatchlistStore,
   ) {}
 
   invalidate(): void {
@@ -38,6 +42,20 @@ export class SpecterCatalog {
   }
 
   private async load(): Promise<CatalogSnapshot> {
+    const isHealthy = await this.specter.isHealthy().catch(() => false);
+    if (!isHealthy && (this.agentCameraStore || this.agentWatchlistStore)) {
+      const cameras = this.agentCameraStore?.getCameras() ?? [];
+      const watchlists = this.agentWatchlistStore?.getWatchlists() ?? [];
+      const targets = this.agentWatchlistStore?.getAllTargets() ?? [];
+      return {
+        cameraNames: new Map(cameras.map((camera) => [camera.id, camera.name])),
+        watchlists: new Map(
+          watchlists.map((watchlist) => [watchlist.id, { name: watchlist.name, kind: watchlist.kind }]),
+        ),
+        targetLabels: new Map(targets.map((target) => [target.id, target.label])),
+      };
+    }
+
     const owner = { path: { owner_id: this.specter.ownerId } };
     const [cameras, watchlists] = await Promise.all([
       this.specter.unwrap(this.specter.api.GET("/owners/{owner_id}/cameras", { params: owner })),

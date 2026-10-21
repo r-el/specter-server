@@ -126,6 +126,12 @@ export interface AgentServerToClientEvents {
   "agent:camera:start": (payload: { cameraId: string }) => void;
   "agent:camera:stop": (payload: { cameraId: string }) => void;
   "agent:cameras:request_sync": () => void;
+  "agent:watchlists:request_sync": () => void;
+  "agent:alerts:request_sync": () => void;
+  "agent:watchlist:create": (payload: { watchlist: unknown }) => void;
+  "agent:watchlist:update": (payload: { watchlistId: string; changes: unknown }) => void;
+  "agent:watchlist:delete": (payload: { watchlistId: string }) => void;
+  "agent:target:delete": (payload: { watchlistId: string; targetId: string }) => void;
   "webrtc:offer": (payload: { cameraId: string; sdp: string; correlationId: string; clientSocketId: string }) => void;
   "webrtc:ice_candidate": (payload: {
     cameraId: string;
@@ -139,6 +145,8 @@ export interface AgentServerToClientEvents {
 export interface AgentClientToServerEvents {
   "agent:heartbeat": (payload?: { name?: string; version?: string }) => void;
   "agent:cameras:sync": (payload: { cameras: unknown[] }) => void;
+  "agent:watchlists:sync": (payload: { watchlists: unknown[]; targets?: unknown[] }) => void;
+  "agent:alerts:sync": (payload: { alerts: unknown[] }) => void;
   "agent:camera:status_changed": (payload: {
     cameraId: string;
     cameraName?: string | null;

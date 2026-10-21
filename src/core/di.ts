@@ -14,6 +14,7 @@ import { WatchlistService } from "@watchlists/watchlistService.js";
 import { AuthService } from "@auth/authService.js";
 import { CAMERA_ASSIGNMENT_REPOSITORY, CAMERA_REPOSITORY } from "@cameras/infrastructure/tokens.js";
 import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
+import { AgentWatchlistStore } from "@watchlists/infrastructure/agentWatchlistStore.js";
 import { HybridCameraRepository } from "@cameras/infrastructure/hybridCameraRepository.js";
 import { SupabaseCameraAssignmentRepository } from "@cameras/infrastructure/supabaseCameraAssignmentRepository.js";
 import { VECTOR_REPOSITORY } from "@vector/infrastructure/tokens.js";
@@ -27,6 +28,7 @@ import { SPECTER_CATALOG, SPECTER_CONFIG, SPECTER_EVENT_STREAM, SPECTER_HTTP_CLI
 // Register services in DI container
 container.registerSingleton(AgentCameraStore);
 container.registerSingleton(AgentAlertStore);
+container.registerSingleton(AgentWatchlistStore);
 container.registerSingleton(CameraService);
 container.registerSingleton(CameraSettingsService);
 container.registerSingleton(AlertService);
@@ -49,7 +51,15 @@ container.register<SpecterEventStream>(SPECTER_EVENT_STREAM, {
   useFactory: instanceCachingFactory((c) => new SpecterEventStream(c.resolve(SPECTER_CONFIG))),
 });
 container.register<SpecterCatalog>(SPECTER_CATALOG, {
-  useFactory: instanceCachingFactory((c) => new SpecterCatalog(c.resolve(SPECTER_HTTP_CLIENT))),
+  useFactory: instanceCachingFactory(
+    (c) =>
+      new SpecterCatalog(
+        c.resolve(SPECTER_HTTP_CLIENT),
+        60_000,
+        c.resolve(AgentCameraStore),
+        c.resolve(AgentWatchlistStore),
+      ),
+  ),
 });
 
 export { container };

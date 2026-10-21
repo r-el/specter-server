@@ -14,7 +14,10 @@ import logger from "@core/utils/logger.js";
 import { CameraService } from "@cameras/cameraService.js";
 import { AgentCameraStore } from "@cameras/infrastructure/agentCameraStore.js";
 import { AgentAlertStore } from "@alerts/infrastructure/agentAlertStore.js";
-import type { SpecterAlert } from "@specter/specterTypes.js";
+import { AgentWatchlistStore } from "@watchlists/infrastructure/agentWatchlistStore.js";
+import type { SpecterAlert, SpecterWatchlist, SpecterTarget } from "@specter/specterTypes.js";
+import { SPECTER_HTTP_CLIENT } from "@specter/tokens.js";
+import type { SpecterHttpClient } from "@specter/specterHttpClient.js";
 import type { ICamera, CameraLiveStatus } from "~types/interfaces.js";
 import { UserService } from "@users/userService.js";
 import { heartbeatAgent } from "@agents/agentService.js";
@@ -192,6 +195,87 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
         });
       } catch (err) {
         logger.error("Failed to process agent:cameras:sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // Edge agent watchlist and target sync (Edge pushes local watchlists to cloud)
+    socket.on("agent:watchlists:sync", (payload: { watchlists: unknown[]; targets?: unknown[] }) => {
+      try {
+        const agentWatchlistStore = container.resolve(AgentWatchlistStore);
+        const watchlists = (payload?.watchlists ?? []) as SpecterWatchlist[];
+        const targets = (payload?.targets ?? []) as SpecterTarget[];
+        agentWatchlistStore.setWatchlists(agent.id, agent.owner_id, watchlists, targets);
+        logger.info("Synced watchlists from edge agent", {
+          agentId: agent.id,
+          ownerId: agent.owner_id,
+          count: watchlists.length,
+          targetCount: targets.length,
+        });
+
+        dispatcher?.broadcast({
+          kind: "configuration_changed",
+          entityKind: "watchlist",
+          entityId: "",
+          changeKind: "updated",
+          level: "info",
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        logger.error("Failed to process agent:watchlists:sync", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    // Edge agent alerts initial backfill sync
+    socket.on("agent:alerts:sync", (payload: { alerts: unknown[] }) => {
+      try {
+        const agentAlertStore = container.resolve(AgentAlertStore);
+        const alerts = (payload?.alerts ?? []) as Array<Record<string, any>>;
+        for (const raw of alerts) {
+          const inner = (raw.payload as Record<string, any>) ?? raw;
+          const alertId = (raw.alert_id || inner.id || inner.message_id || `alert_${Date.now()}`) as string;
+          const cameraId = (inner.camera_id || raw.camera_id || "") as string;
+          const isMatch = raw.kind === "match_confirmed" || !!inner.target_id;
+          const alertRecord: SpecterAlert = {
+            id: alertId,
+            kind: isMatch ? "identity_match" : "rule",
+            owner_id: agent.owner_id || inner.owner_id || "facealert",
+            camera_id: cameraId,
+            track_id: inner.track_id ?? 0,
+            object_class: inner.object_class ?? "person",
+            bounding_box: inner.bounding_box ?? { x: 0, y: 0, width: 0, height: 0 },
+            frame_captured_at: inner.frame_captured_at ?? new Date().toISOString(),
+            created_at: raw.created_at ?? inner.created_at ?? inner.occurred_at ?? new Date().toISOString(),
+            has_snapshot: Boolean(raw.snapshot_base64 || inner.has_snapshot),
+            review: {
+              disposition: (inner.review?.disposition as any) ?? "unreviewed",
+              is_acknowledged: Boolean(inner.review?.is_acknowledged),
+              note: inner.review?.note ?? null,
+            },
+            watchlist_id: inner.watchlist_id ?? null,
+            target_id: inner.target_id ?? null,
+            modality: inner.modality ?? null,
+            similarity_ratio: inner.similarity_ratio ?? null,
+            margin_ratio: inner.margin_ratio ?? null,
+            rule_id: inner.rule_id ?? null,
+            rule_kind: inner.rule_kind ?? null,
+            zone_id: inner.zone_id ?? null,
+            dwell_seconds: inner.dwell_seconds ?? null,
+            crossing_direction: inner.crossing_direction ?? null,
+          };
+          agentAlertStore.addAlert(alertRecord, raw.snapshot_base64);
+        }
+        logger.info("Synced alerts backfill from edge agent", {
+          agentId: agent.id,
+          count: alerts.length,
+        });
+      } catch (err) {
+        logger.error("Failed to process agent:alerts:sync", {
           agentId: agent.id,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -418,17 +502,26 @@ export function initializeSocketServer(httpServer: HttpServer): NotificationDisp
     // Request camera catalog from agent immediately upon connection
     socket.emit("agent:cameras:request_sync");
 
-    // Initial watchlist sync on connection
-    try {
-      const { WatchlistService } = await import("@watchlists/watchlistService.js");
-      const watchlistService = container.resolve(WatchlistService);
-      const watchlists = await watchlistService.listWatchlists();
-      socket.emit("watchlists:sync", { watchlists });
-    } catch (err) {
-      logger.error("Failed to emit initial watchlists:sync to agent", {
-        agentId: agent.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    // Check if cloud has local Specter or should request watchlists and alerts from agent
+    const specterClient = container.resolve<SpecterHttpClient>(SPECTER_HTTP_CLIENT);
+    const isSpecterHealthy = await specterClient.isHealthy().catch(() => false);
+
+    if (isSpecterHealthy) {
+      try {
+        const { WatchlistService } = await import("@watchlists/watchlistService.js");
+        const watchlistService = container.resolve(WatchlistService);
+        const watchlists = await watchlistService.listWatchlists();
+        socket.emit("watchlists:sync", { watchlists });
+      } catch (err) {
+        logger.error("Failed to emit initial watchlists:sync to agent", {
+          agentId: agent.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else {
+      // In cloud mode: request agent to push its watchlists and recent alerts to the cloud
+      socket.emit("agent:watchlists:request_sync");
+      socket.emit("agent:alerts:request_sync");
     }
   });
 
